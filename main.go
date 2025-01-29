@@ -18,6 +18,7 @@ func main() {
 
 	for {
 		buf := make([]byte, 65536)
+		
 		n, addr, err := syscall.Recvfrom(fd, buf, 0)
 		if err != nil {
 			fmt.Println("Some Error happend")
