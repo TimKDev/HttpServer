@@ -28,20 +28,20 @@ const (
 	InternalServerError HttpStatus = "500 Internal Server Error"
 )
 
-type v1UnroutedHttpRequest struct {
+type V1UnroutedHttpRequest struct {
 	method  HttpMethod        //16 bytes = 8 bytes for pointer + 8 bytes for size (wie dynamic array in C)
 	target  string            //16 bytes = 8 bytes for pointer + 8 bytes for size (wie dynamic array in C)
 	headers map[string]string //8 bytes for pointer
 	body    string            //16 bytes = 8 bytes for pointer + 8 bytes for size (wie dynamic array in C)
 }
 
-type v1HttpResponse struct {
+type V1HttpResponse struct {
 	status  HttpStatus
 	headers map[string]string
 	body    string
 }
 
-func printRequest(request *v1UnroutedHttpRequest) {
+func printRequest(request *V1UnroutedHttpRequest) {
 	fmt.Println("HTTP Request:")
 	fmt.Printf("Methode: %s\n", request.method)
 	fmt.Printf("Target: %s\n", request.target)
@@ -56,7 +56,7 @@ func printRequest(request *v1UnroutedHttpRequest) {
 		fmt.Println(request.body)
 	}
 }
-func printResponse(response *v1HttpResponse) {
+func printResponse(response *V1HttpResponse) {
 	fmt.Println("HTTP Response:")
 	fmt.Printf("Status: %s\n", response.status)
 	if len(response.headers) != 0 {
@@ -71,7 +71,7 @@ func printResponse(response *v1HttpResponse) {
 	}
 }
 
-func convertV1HttpResponse(response *v1HttpResponse) []byte {
+func convertV1HttpResponse(response *V1HttpResponse) []byte {
 	capacity := 128 + len(response.status) + len(response.body)
 	for k, v := range response.headers {
 		capacity += len(k) + len(v) + 4 // 4 for ": " and "\r\n"
@@ -94,7 +94,7 @@ func convertV1HttpResponse(response *v1HttpResponse) []byte {
 	return result
 }
 
-func convertToHttpRequest(buf []byte) (*v1UnroutedHttpRequest, error) {
+func convertToHttpRequest(buf []byte) (*V1UnroutedHttpRequest, error) {
 	if len(buf) == 0 {
 		return nil, errors.New("empty request buffer")
 	}
@@ -138,7 +138,7 @@ func convertToHttpRequest(buf []byte) (*v1UnroutedHttpRequest, error) {
 		body = strings.TrimRight(strings.Join(bodyContent, "\n"), "\x00\n\r\t ")
 	}
 
-	var httpRequest v1UnroutedHttpRequest
+	var httpRequest V1UnroutedHttpRequest
 	httpRequest.method = method
 	httpRequest.target = requestTarget
 	httpRequest.headers = headers
