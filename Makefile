@@ -2,9 +2,9 @@ run: build
 	@./bin/httpServer
 
 build: 
-	@go build -o bin/httpServer
-	sudo setcap cap_net_raw+ep bin/httpServer
+	@cd src && go build -o ../bin/httpServer ./main.go
+	@sudo setcap cap_net_raw+ep bin/httpServer
 
 test: 
-	@go test -v ./...
+	@cd src && go test -v ./...
 
