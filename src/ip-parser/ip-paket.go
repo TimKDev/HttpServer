@@ -6,7 +6,7 @@ type IPPaket struct {
 	Ecn                 TypeOfService //
 	TotalLength         int16         // Total length of packet (header + payload)
 
-	Identification      int16 // Used for packet fragmentation
+	Identification      int16 // Dies ist eine eindeutige Zahl die definiert welche Frakmente zusammengehören, wenn von einer Quelle mehrere unterschiedliche IP Pakete frakmentiert werden
 	DontFracment        bool  // Wenn dies gesetzt ist, darf das IP Paket nicht frakmentiert werden, wenn es zu groß ist, wird es gedroppt
 	MoreFracmentsFollow bool  // Definiert, ob nach diesem Paket noch weitere Pakete folgen könnten.
 	FragmentOffset      int16 // 13 bits: Fragment offset in 8-byte units

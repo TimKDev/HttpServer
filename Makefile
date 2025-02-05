@@ -6,5 +6,5 @@ build:
 	@sudo setcap cap_net_raw+ep bin/httpServer
 
 test: 
-	@cd src && go test -v ./...
+	@cd src && go test ./...
 

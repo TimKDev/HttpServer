@@ -19,7 +19,6 @@ func main() {
 
 	for {
 		buf := make([]byte, 65536)
-
 		n, addr, err := syscall.Recvfrom(fd, buf, 0)
 		if err != nil {
 			fmt.Println("Some Error happend")
@@ -41,9 +40,16 @@ func main() {
 
 func process(buffer []byte, addr syscall.Sockaddr) {
 	fmt.Println("Recived Package")
+	fmt.Println(buffer)
 	ipPaket, err := ipparser.ParseIPPaket(buffer)
 	if err != nil {
 		log.Printf("Ip parsing error: %v\n", err)
 	}
 	ipparser.Print(ipPaket)
+
+	if ipPaket.Ecn == ipparser.CE {
+		// Setze den
+	}
+	//Compute response:
+	//Solange mein Transport Layer Congestion Control nicht unterstützt, muss ich in der Response den Wert des ECN Flags auf 0 setzen.
 }
