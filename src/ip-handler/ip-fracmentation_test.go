@@ -4,16 +4,16 @@ import (
 	"http-server/helper/test"
 	ipparser "http-server/ip-parser"
 	"testing"
+	"time"
 )
 
 func TestIPFragmentationCombination(t *testing.T) {
 	t.Run("should correctly combine two IP fragments", func(t *testing.T) {
-		// Create first fragment
 		fragment1 := &ipparser.IPPaket{
 			IpHeaderBytesLength: 20,
 			Dscp:                1,
 			Ecn:                 2,
-			TotalLength:         40, // 20 bytes header + 20 bytes payload
+			TotalLength:         28,
 			Identification:      12345,
 			DontFracment:        false,
 			MoreFracmentsFollow: true,
@@ -22,33 +22,41 @@ func TestIPFragmentationCombination(t *testing.T) {
 			Protocol:            ipparser.TCP,
 			SourceIP:            [4]byte{192, 168, 1, 1},
 			DestinationIP:       [4]byte{192, 168, 1, 2},
-			Payload:             []byte("First part of payload."),
+			Payload:             []byte{1, 1, 1, 1, 1, 1, 1, 1},
 		}
 
-		// Create second fragment
 		fragment2 := &ipparser.IPPaket{
 			IpHeaderBytesLength: 20,
-			TotalLength:         40, // 20 bytes header + 20 bytes payload
+			TotalLength:         23,
 			Identification:      12345,
 			MoreFracmentsFollow: false,
-			FragmentOffset:      2, // (20 bytes / 8) = 2
+			FragmentOffset:      1,
 			Protocol:            ipparser.TCP,
 			SourceIP:            [4]byte{192, 168, 1, 1},
 			DestinationIP:       [4]byte{192, 168, 1, 2},
-			Payload:             []byte("Second part of payload"),
+			Payload:             []byte{2, 2, 2},
 		}
 
-		fragments := []*ipparser.IPPaket{fragment1, fragment2}
-		result := buildPackageFromFracments(fragments)
+		input := make(map[string][]FracmentEntry)
+		input["test"] = []FracmentEntry{
+			{
+				Package:     fragment1,
+				ArrivalTime: time.Time{},
+			},
+			{
+				Package:     fragment2,
+				ArrivalTime: time.Time{},
+			},
+		}
+		result := buildPackageFromFracments(input)
 
-		// Verify the combined package
 		test.AssertNoError(t, nil)
 		test.AssertNotNil(t, result)
 		test.AssertEquality(t, result.Identification, int16(12345))
 		test.AssertEquality(t, result.MoreFracmentsFollow, false)
 		test.AssertEquality(t, result.FragmentOffset, int16(0))
-		test.AssertEquality(t, len(result.Payload), 40)
-		test.AssertEquality(t, string(result.Payload), "First part of payload.Second part of payload")
+		test.AssertEquality(t, len(result.Payload), 11)
+		test.AssertSliceEquality(t, result.Payload, []byte{1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2})
 	})
 
 	t.Run("should return nil for incomplete fragments", func(t *testing.T) {
@@ -75,35 +83,18 @@ func TestIPFragmentationCombination(t *testing.T) {
 			Payload:             []byte("Last part"),
 		}
 
-		fragments := []*ipparser.IPPaket{fragment1, fragment3}
-		result := buildPackageFromFracments(fragments)
-
-		test.AssertEquality(t, result == nil, true)
-	})
-
-	t.Run("should not combine fragments with different identifications", func(t *testing.T) {
-		fragment1 := &ipparser.IPPaket{
-			Identification:      12345,
-			MoreFracmentsFollow: true,
-			FragmentOffset:      0,
-			Protocol:            ipparser.TCP,
-			SourceIP:            [4]byte{192, 168, 1, 1},
-			DestinationIP:       [4]byte{192, 168, 1, 2},
-			Payload:             []byte("First part"),
+		input := make(map[string][]FracmentEntry)
+		input["test"] = []FracmentEntry{
+			{
+				Package:     fragment1,
+				ArrivalTime: time.Time{},
+			},
+			{
+				Package:     fragment3,
+				ArrivalTime: time.Time{},
+			},
 		}
-
-		fragment2 := &ipparser.IPPaket{
-			Identification:      24321, // Different identification
-			MoreFracmentsFollow: false,
-			FragmentOffset:      2,
-			Protocol:            ipparser.TCP,
-			SourceIP:            [4]byte{192, 168, 1, 1},
-			DestinationIP:       [4]byte{192, 168, 1, 2},
-			Payload:             []byte("Second part"),
-		}
-
-		fragments := []*ipparser.IPPaket{fragment1, fragment2}
-		result := buildPackageFromFracments(fragments)
+		result := buildPackageFromFracments(input)
 
 		test.AssertEquality(t, result == nil, true)
 	})

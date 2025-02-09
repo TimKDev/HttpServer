@@ -1,16 +1,23 @@
 package iphandler
 
 import (
+	"fmt"
 	"http-server/helper/slices"
 	"http-server/ip-parser"
 	"http-server/tcp-handler"
 	"log"
+	"time"
 )
 
-var detectedCongestions [][4]byte
+type FracmentEntry struct {
+	Package     *ipparser.IPPaket
+	ArrivalTime time.Time
+}
 
-// TODO Some sort of lifetime for orphaned package cleanup is needed.
-var fracmentedPackages []*ipparser.IPPaket
+var fracmentLifetime = 30 * time.Second
+
+var detectedCongestions [][4]byte
+var fracmentedPackages = make(map[string][]FracmentEntry)
 
 func HandleIPPackage(ipPackage *ipparser.IPPaket) {
 	if ipPackage.Ecn == ipparser.CE {
@@ -19,12 +26,18 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) {
 		}
 	}
 	if ipPackage.MoreFracmentsFollow || ipPackage.FragmentOffset != 0 {
-		fracmentedPackages = append(fracmentedPackages, ipPackage)
+		key := createFracmentKey(ipPackage)
+		fracmentedPackages[key] = append(fracmentedPackages[key], FracmentEntry{
+			Package:     ipPackage,
+			ArrivalTime: time.Now(),
+		})
 		ipPackage = buildPackageFromFracments(fracmentedPackages)
-	}
 
-	if ipPackage == nil {
-		return
+		if ipPackage != nil {
+			delete(fracmentedPackages, key)
+		} else {
+			return
+		}
 	}
 
 	if ipPackage.Protocol != ipparser.TCP {
@@ -32,6 +45,27 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) {
 		return
 	}
 	tcphandler.HandleTcpPackage(ipPackage.Payload)
+	cleanupFracments()
+
+}
+
+func createFracmentKey(ipPackage *ipparser.IPPaket) string {
+	return fmt.Sprintf("%v-%v-%d-%d", ipPackage.DestinationIP, ipPackage.SourceIP, ipPackage.Protocol, ipPackage.Identification)
+}
+
+func cleanupFracments() {
+	keysToDelete := make([]string, 2)
+	for key, entry := range fracmentedPackages {
+		entry = slices.Where(entry, func(fe FracmentEntry) bool {
+			return time.Since(fe.ArrivalTime) <= fracmentLifetime
+		})
+		if len(entry) == 0 {
+			keysToDelete = append(keysToDelete, key)
+		}
+	}
+	for _, key := range keysToDelete {
+		delete(fracmentedPackages, key)
+	}
 }
 
 func compareIPs(ip1 [4]byte, ip2 [4]byte) bool {

@@ -7,11 +7,8 @@ import (
 	"log"
 )
 
-func buildPackageFromFracments(fracmentedPackages []*ipparser.IPPaket) *ipparser.IPPaket {
-	for _, val := range fracmentedPackages {
-		fracmentParts := slices.Where(fracmentedPackages, func(fracment *ipparser.IPPaket) bool {
-			return compareFracments(fracment, val)
-		})
+func buildPackageFromFracments(fracmentedPackages map[string][]FracmentEntry) *ipparser.IPPaket {
+	for _, fracmentParts := range fracmentedPackages {
 		if isPackageComplete(fracmentParts) {
 			combinedPackage, err := combineFracments(fracmentParts)
 			if err != nil {
@@ -24,15 +21,15 @@ func buildPackageFromFracments(fracmentedPackages []*ipparser.IPPaket) *ipparser
 	return nil
 }
 
-func combineFracments(fracmentParts []*ipparser.IPPaket) (*ipparser.IPPaket, error) {
+func combineFracments(fracmentParts []FracmentEntry) (*ipparser.IPPaket, error) {
 	// Fracments are combined by taking the headers of the first package fracment and combining the payloads of the other packages
 	var firstPackage *ipparser.IPPaket
 	var totalSizePayload uint16
 	for _, fracment := range fracmentParts {
-		if fracment.FragmentOffset == 0 {
-			firstPackage = fracment
+		if fracment.Package.FragmentOffset == 0 {
+			firstPackage = fracment.Package
 		}
-		totalSizePayload += uint16(fracment.TotalLength) - uint16(fracment.IpHeaderBytesLength)
+		totalSizePayload += uint16(fracment.Package.TotalLength) - uint16(fracment.Package.IpHeaderBytesLength)
 	}
 
 	if firstPackage == nil {
@@ -41,8 +38,8 @@ func combineFracments(fracmentParts []*ipparser.IPPaket) (*ipparser.IPPaket, err
 
 	combinedPayload := make([]byte, totalSizePayload)
 	for _, fracment := range fracmentParts {
-		offset := int(fracment.FragmentOffset * 8)
-		for i, val := range fracment.Payload {
+		offset := int(fracment.Package.FragmentOffset * 8)
+		for i, val := range fracment.Package.Payload {
 			combinedPayload[offset+i] = val
 		}
 	}
@@ -67,11 +64,12 @@ func combineFracments(fracmentParts []*ipparser.IPPaket) (*ipparser.IPPaket, err
 	return res, nil
 }
 
-func isPackageComplete(fracmentParts []*ipparser.IPPaket) bool {
+func isPackageComplete(fracmentParts []FracmentEntry) bool {
 	neededOffsets := make([]uint16, len(fracmentParts))
 	neededOffsets = append(neededOffsets, 0)
 	containsLastFracment := false
-	for _, fracment := range fracmentParts {
+	for _, fracmentEntry := range fracmentParts {
+		fracment := fracmentEntry.Package
 		if !fracment.MoreFracmentsFollow {
 			containsLastFracment = true
 			continue
@@ -85,26 +83,9 @@ func isPackageComplete(fracmentParts []*ipparser.IPPaket) bool {
 	}
 
 	for _, fracment := range fracmentParts {
-		if !slices.Contains(neededOffsets, uint16(fracment.FragmentOffset*8)) {
+		if !slices.Contains(neededOffsets, uint16(fracment.Package.FragmentOffset*8)) {
 			return false
 		}
 	}
-	return true
-}
-
-func compareFracments(fracment *ipparser.IPPaket, packageToCompare *ipparser.IPPaket) bool {
-	if fracment.DestinationIP != packageToCompare.DestinationIP {
-		return false
-	}
-	if fracment.SourceIP != packageToCompare.SourceIP {
-		return false
-	}
-	if fracment.Protocol != packageToCompare.Protocol {
-		return false
-	}
-	if fracment.Identification != packageToCompare.Identification {
-		return false
-	}
-
 	return true
 }
