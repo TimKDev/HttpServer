@@ -34,6 +34,8 @@ func ParseTCPSegment(tcpBytes []byte, ipPseudoHeaderData *IPPseudoHeaderData) (*
 		res.Options = tcpBytes[20:headerSizeInBytes]
 	}
 	res.Payload = tcpBytes[headerSizeInBytes:]
+	calChecksum := calculateChecksum(tcpBytes, ipPseudoHeaderData)
+	fmt.Printf("calculated: %d, value %d", calChecksum, res.Checksum)
 	if calculateChecksum(tcpBytes, ipPseudoHeaderData) != res.Checksum {
 		return nil, fmt.Errorf("checksum does not match, package is dropped")
 	}
@@ -73,13 +75,19 @@ func createTCPPseudoHeader(tcpBytes []byte, pseudoData *IPPseudoHeaderData) []by
 	pseudoHeader[8] = 0
 	pseudoHeader[9] = pseudoData.Protocol
 	binary.BigEndian.PutUint16(pseudoHeader[10:12], pseudoData.TotalLength)
+
+	// Create a new slice for the complete pseudo header + TCP segment
+	fullPacket := make([]byte, len(pseudoHeader)+len(tcpBytes))
+	copy(fullPacket[:12], pseudoHeader)
+
+	// Copy TCP segment with zeroed checksum
 	for i := 0; i < len(tcpBytes); i++ {
 		if i == 16 || i == 17 {
-			//Remove Checksum
-			continue
+			fullPacket[12+i] = 0 // Zero out checksum bytes
+		} else {
+			fullPacket[12+i] = tcpBytes[i]
 		}
-		pseudoHeader = append(pseudoHeader, tcpBytes[i])
 	}
 
-	return pseudoHeader
+	return fullPacket
 }
