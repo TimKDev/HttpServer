@@ -54,7 +54,7 @@ func TestIPFragmentationCombination(t *testing.T) {
 		test.AssertNotNil(t, result)
 		test.AssertEquality(t, result.Identification, int16(12345))
 		test.AssertEquality(t, result.MoreFracmentsFollow, false)
-		test.AssertEquality(t, result.FragmentOffset, int16(0))
+		test.AssertEquality(t, result.FragmentOffset, uint16(0))
 		test.AssertEquality(t, len(result.Payload), 11)
 		test.AssertSliceEquality(t, result.Payload, []byte{1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2})
 	})

@@ -12,7 +12,7 @@ type IPPseudoHeaderData struct {
 	TotalLength   uint16
 }
 
-func ParseTCPSegment(tcpBytes []byte, ipPseudoHeaderData *IPPseudoHeaderData) (*TCPSegment, error) {
+func ParseTCPSegment(tcpBytes []byte, ipPseudoHeaderData *IPPseudoHeaderData, verifyChecksum bool) (*TCPSegment, error) {
 	if len(tcpBytes) < 20 {
 		return nil, fmt.Errorf("data too short for tcp headers: %d bytes", len(tcpBytes))
 	}
@@ -22,7 +22,7 @@ func ParseTCPSegment(tcpBytes []byte, ipPseudoHeaderData *IPPseudoHeaderData) (*
 		DestinationPort: combineTwoBytes(tcpBytes[2], tcpBytes[3]),
 		SequenceNumber:  combineFourBytes(tcpBytes[4], tcpBytes[5], tcpBytes[6], tcpBytes[7]),
 		AckNumber:       combineFourBytes(tcpBytes[8], tcpBytes[9], tcpBytes[10], tcpBytes[11]),
-		DataOffset:      tcpBytes[12] & 0xF0,
+		DataOffset:      tcpBytes[12] >> 4,
 		Flags:           tcpBytes[13],
 		WindowSize:      combineTwoBytes(tcpBytes[14], tcpBytes[15]),
 		Checksum:        combineTwoBytes(tcpBytes[16], tcpBytes[17]),
@@ -34,9 +34,7 @@ func ParseTCPSegment(tcpBytes []byte, ipPseudoHeaderData *IPPseudoHeaderData) (*
 		res.Options = tcpBytes[20:headerSizeInBytes]
 	}
 	res.Payload = tcpBytes[headerSizeInBytes:]
-	calChecksum := calculateChecksum(tcpBytes, ipPseudoHeaderData)
-	fmt.Printf("calculated: %d, value %d", calChecksum, res.Checksum)
-	if calculateChecksum(tcpBytes, ipPseudoHeaderData) != res.Checksum {
+	if verifyChecksum && calculateChecksum(tcpBytes, ipPseudoHeaderData) != res.Checksum {
 		return nil, fmt.Errorf("checksum does not match, package is dropped")
 	}
 	return res, nil

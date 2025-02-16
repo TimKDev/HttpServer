@@ -5,6 +5,7 @@ import (
 	"http-server/helper/slices"
 	"http-server/ip-parser"
 	"http-server/tcp-handler"
+	"http-server/tcp-parser"
 	"log"
 	"time"
 )
@@ -14,11 +15,13 @@ type FracmentEntry struct {
 	ArrivalTime time.Time
 }
 
+// TODO Dieser Code sollte aus einer Configurations Datei kommen.
 var fracmentLifetime = 30 * time.Second
 
 var detectedCongestions [][4]byte
 var fracmentedPackages = make(map[string][]FracmentEntry)
 
+// TODO Entferne die direkte Abhängigkeit auf tcp-handler und tcp-parser, indem ein Interface für den TCP Handler definiert wird und dieses Interface in diese Methode reingegeben wird
 func HandleIPPackage(ipPackage *ipparser.IPPaket) {
 	if ipPackage.Ecn == ipparser.CE {
 		if !slices.ContainsFunc(detectedCongestions, ipPackage.SourceIP, compareIPs) {
@@ -44,7 +47,18 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) {
 		log.Print("Protocol not supported. Package is dropped.")
 		return
 	}
-	tcphandler.HandleTcpPackage(ipPackage.Payload)
+	//TODO Diese Config muss von außen in diese Funktion hineingegeben werden.
+	tcpConfig := tcphandler.TcpHandlerConfig{
+		Port:           10000,
+		VerifyChecksum: false,
+	}
+	pseudoHeader := tcpparser.IPPseudoHeaderData{
+		SourceIP:      ipPackage.SourceIP,
+		DestinationIP: ipPackage.DestinationIP,
+		Protocol:      uint8(ipPackage.Protocol),
+		TotalLength:   ipPackage.TotalLength,
+	}
+	tcphandler.HandleTcpSegment(ipPackage.Payload, &pseudoHeader, tcpConfig)
 	cleanupFracments()
 
 }
@@ -54,12 +68,12 @@ func createFracmentKey(ipPackage *ipparser.IPPaket) string {
 }
 
 func cleanupFracments() {
-	keysToDelete := make([]string, 2)
+	keysToDelete := make([]string, 0)
 	for key, entry := range fracmentedPackages {
-		entry = slices.Where(entry, func(fe FracmentEntry) bool {
+		validFracments := slices.Where(entry, func(fe FracmentEntry) bool {
 			return time.Since(fe.ArrivalTime) <= fracmentLifetime
 		})
-		if len(entry) == 0 {
+		if len(validFracments) == 0 {
 			keysToDelete = append(keysToDelete, key)
 		}
 	}

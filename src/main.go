@@ -8,6 +8,9 @@ import (
 	"syscall"
 )
 
+type ServerConfig struct {
+}
+
 func main() {
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
 	if err != nil {
@@ -40,7 +43,6 @@ func main() {
 }
 
 func process(buffer []byte, addr syscall.Sockaddr) {
-	fmt.Println("Received Package")
 	ipPaket, err := ipparser.ParseIPPaket(buffer)
 	if err != nil {
 		log.Printf("Ip parsing error: %v\n", err)

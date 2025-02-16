@@ -14,7 +14,7 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 		return nil, fmt.Errorf("unsupported IP version: %d", version)
 	}
 
-	headerLength := int16(data[0]&0x0F) * 4 // Hier wird eine Bitwise Operation mit der Zahl 15 in Dezimal oder 1111 in Binär oder 0x0F in Hexadezimal verwendet, um die letzten 4 Bits zu extrahieren. Ein Left Shift bei 4 würde nicht funktionieren, da dies 0101 0000 ergeben würden und nicht 0000 0101.
+	headerLength := uint16(data[0]&0x0F) * 4 // Hier wird eine Bitwise Operation mit der Zahl 15 in Dezimal oder 1111 in Binär oder 0x0F in Hexadezimal verwendet, um die letzten 4 Bits zu extrahieren. Ein Left Shift bei 4 würde nicht funktionieren, da dies 0101 0000 ergeben würden und nicht 0000 0101.
 	if int(headerLength) > len(data) {
 		return nil, fmt.Errorf("header length (%d) exceeds packet size", headerLength)
 	}
@@ -31,11 +31,11 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 		IpHeaderBytesLength: headerLength,
 		Dscp:                TypeOfService(data[1] & 0xFC),
 		Ecn:                 TypeOfService(data[1] & 0x03),
-		TotalLength:         int16(data[2])<<8 | int16(data[3]), //int16(data[2]) hängt 8 Nullen vor das Byte, z.B. 0000 0000 1101 0110. Danach werden diese um 8 nach links verschoben: 1101 0110 0000 0000. Danach kommt ein logisches Oder, d.h. die beiden Bytes data[2] und data[3] werden einfach aneinander gehängt um eine einzelne 16 Bit oder int16 Zahl zu definieren.
+		TotalLength:         uint16(data[2])<<8 | uint16(data[3]), //int16(data[2]) hängt 8 Nullen vor das Byte, z.B. 0000 0000 1101 0110. Danach werden diese um 8 nach links verschoben: 1101 0110 0000 0000. Danach kommt ein logisches Oder, d.h. die beiden Bytes data[2] und data[3] werden einfach aneinander gehängt um eine einzelne 16 Bit oder int16 Zahl zu definieren.
 		Identification:      int16(data[4])<<8 | int16(data[5]),
 		DontFracment:        data[6]&0x02 != 0,
 		MoreFracmentsFollow: data[6]&0x01 != 0,
-		FragmentOffset:      int16(data[6]&0x1F)<<8 | int16(data[7]), // Bottom 13 bits
+		FragmentOffset:      uint16(data[6]&0x1F)<<8 | uint16(data[7]), // Bottom 13 bits
 		TimeToLive:          data[8],
 		Protocol:            IpProtocol(data[9]),
 		SourceIP:            [4]byte{data[12], data[13], data[14], data[15]},
@@ -52,7 +52,7 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 	return paket, nil
 }
 
-func isChecksumValid(data []byte, headerLength int16) bool {
+func isChecksumValid(data []byte, headerLength uint16) bool {
 	var checksum = uint16(data[10])<<8 | uint16(data[11])
 	var sum uint32 = 0
 	for i := 0; i < int(headerLength); i += 2 {

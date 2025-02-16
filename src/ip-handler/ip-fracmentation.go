@@ -48,7 +48,7 @@ func combineFracments(fracmentParts []FracmentEntry) (*ipparser.IPPaket, error) 
 		IpHeaderBytesLength: firstPackage.IpHeaderBytesLength,
 		Dscp:                firstPackage.Dscp,
 		Ecn:                 firstPackage.Ecn,
-		TotalLength:         firstPackage.IpHeaderBytesLength + int16(totalSizePayload),
+		TotalLength:         firstPackage.IpHeaderBytesLength + uint16(totalSizePayload),
 		Identification:      firstPackage.Identification,
 		DontFracment:        firstPackage.DontFracment,
 		MoreFracmentsFollow: false,
@@ -65,7 +65,7 @@ func combineFracments(fracmentParts []FracmentEntry) (*ipparser.IPPaket, error) 
 }
 
 func isPackageComplete(fracmentParts []FracmentEntry) bool {
-	neededOffsets := make([]uint16, len(fracmentParts))
+	neededOffsets := make([]uint16, 0, len(fracmentParts)+1)
 	neededOffsets = append(neededOffsets, 0)
 	containsLastFracment := false
 	for _, fracmentEntry := range fracmentParts {
