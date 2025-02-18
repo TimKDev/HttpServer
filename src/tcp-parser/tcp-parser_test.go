@@ -41,16 +41,38 @@ func TestParseTCPFracment(t *testing.T) {
 			TotalLength:   52,
 		}
 
-		tcpFracment, err := ParseTCPSegment(tcpFrament, iPPseudoHeaderData, false)
+		tcpSegment, err := ParseTCPSegment(tcpFrament, iPPseudoHeaderData, false)
+		PrintTcpSegment(tcpSegment)
 		test.AssertNoError(t, err)
-		test.AssertEquality(t, tcpFracment.SourcePort, 34188)
-		test.AssertEquality(t, tcpFracment.DestinationPort, 8884)
-		test.AssertEquality(t, tcpFracment.AckNumber, 1136580379)
-		test.AssertEquality(t, tcpFracment.SequenceNumber, 3031885510)
-		test.AssertEquality(t, tcpFracment.Checksum, 35971)
-		test.AssertEquality(t, tcpFracment.DataOffset, 8)
-		test.AssertEquality(t, tcpFracment.Flags, 16)
-		test.AssertEquality(t, tcpFracment.WindowSize, 447)
-		test.AssertEquality(t, tcpFracment.UrgentPtr, 0)
+		test.AssertEquality(t, tcpSegment.SourcePort, 34188)
+		test.AssertEquality(t, tcpSegment.DestinationPort, 8884)
+		test.AssertEquality(t, tcpSegment.AckNumber, 1136580379)
+		test.AssertEquality(t, tcpSegment.SequenceNumber, 3031885510)
+		test.AssertEquality(t, tcpSegment.Checksum, 35971)
+		test.AssertEquality(t, tcpSegment.DataOffset, 8)
+		test.AssertEquality(t, tcpSegment.Flags, 16)
+		test.AssertEquality(t, tcpSegment.WindowSize, 447)
+		test.AssertEquality(t, tcpSegment.UrgentPtr, 0)
+	})
+
+	t.Run("parse back to byte array", func(t *testing.T) {
+		expected := []byte{0x85, 0x8c, 0x22, 0xb4, 0xb4, 0xb6, 0xe6, 0xc6, 0x43, 0xbe, 0xd7, 0x1b, 0x80, 0x10, 0x1, 0xbf, 0x8c, 0x83, 0x0, 0x0, 0x1, 0x1, 0x8, 0xa, 0x4d, 0xc6, 0x1c, 0xc7, 0x30, 0x18, 0x97, 0xc4}
+
+		tcpSegment := &TCPSegment{
+			SourcePort:      34188,
+			DestinationPort: 8884,
+			AckNumber:       1136580379,
+			SequenceNumber:  3031885510,
+			DataOffset:      8,
+			Flags:           16,
+			WindowSize:      447,
+			UrgentPtr:       0,
+			Checksum:        0x8c83,
+			Options:         []byte{0x1, 0x1, 0x8, 0xa, 0x4d, 0xc6, 0x1c, 0xc7, 0x30, 0x18, 0x97, 0xc4},
+			Payload:         []byte{},
+		}
+
+		tcpSegmentInBytes := ParseTCPSegmentToBytes(tcpSegment)
+		test.AssertSliceEquality(t, tcpSegmentInBytes, expected)
 	})
 }

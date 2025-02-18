@@ -52,6 +52,10 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 	return paket, nil
 }
 
+func ParseIPPaketToBytes(ipPaket *IPPaket) []byte {
+
+}
+
 func isChecksumValid(data []byte, headerLength uint16) bool {
 	var checksum = uint16(data[10])<<8 | uint16(data[11])
 	var sum uint32 = 0
