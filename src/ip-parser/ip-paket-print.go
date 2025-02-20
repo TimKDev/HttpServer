@@ -16,6 +16,7 @@ func Print(ipPaket *IPPaket) {
 	fmt.Printf("FragmentOffset: %d\n", ipPaket.FragmentOffset)
 	fmt.Printf("TimeToLive: %d\n", ipPaket.TimeToLive)
 	fmt.Printf("Protocol: %s\n", getProtocolName(ipPaket.Protocol))
+	fmt.Printf("Checksum: %d\n", ipPaket.Checksum)
 	fmt.Printf("Source IP: %d.%d.%d.%d\n", ipPaket.SourceIP[0], ipPaket.SourceIP[1], ipPaket.SourceIP[2], ipPaket.SourceIP[3])
 	fmt.Printf("Destination IP: %d.%d.%d.%d\n", ipPaket.DestinationIP[0], ipPaket.DestinationIP[1], ipPaket.DestinationIP[2], ipPaket.DestinationIP[3])
 	if len(ipPaket.Options) > 0 {

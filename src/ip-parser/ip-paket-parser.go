@@ -2,6 +2,7 @@ package ipparser
 
 import (
 	"fmt"
+	"http-server/helper/bytes"
 )
 
 func ParseIPPaket(data []byte) (*IPPaket, error) {
@@ -38,6 +39,7 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 		FragmentOffset:      uint16(data[6]&0x1F)<<8 | uint16(data[7]), // Bottom 13 bits
 		TimeToLive:          data[8],
 		Protocol:            IpProtocol(data[9]),
+		Checksum:            bytes.CombineTwoBytes(data[10], data[11]),
 		SourceIP:            [4]byte{data[12], data[13], data[14], data[15]},
 		DestinationIP:       [4]byte{data[16], data[17], data[18], data[19]},
 		Payload:             data[headerLength:],
@@ -52,8 +54,35 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 	return paket, nil
 }
 
-func ParseIPPaketToBytes(ipPaket *IPPaket) []byte {
+func ParseIPPaketToBytes(ipPaket *IPPaket) ([]byte, error) {
+	result := make([]byte, 0, 20)
+	result = append(result, byte(4<<4)|byte(ipPaket.IpHeaderBytesLength/4))
+	result = append(result, byte(ipPaket.Dscp)<<5|byte(ipPaket.Ecn))
+	result = append(result, bytes.ExtractTwoBytes(ipPaket.TotalLength)...)
+	result = append(result, bytes.ExtractTwoBytes(uint16(ipPaket.Identification))...)
+	result = append(result, byte(convertBooleanToByte(ipPaket.DontFracment)<<7)|byte(convertBooleanToByte(ipPaket.MoreFracmentsFollow)<<6)|byte(ipPaket.FragmentOffset>>8))
+	result = append(result, byte(ipPaket.FragmentOffset))
+	result = append(result, ipPaket.TimeToLive)
+	result = append(result, byte(ipPaket.Protocol))
+	result = append(result, bytes.ExtractTwoBytes(ipPaket.Checksum)...)
+	result = append(result, ipPaket.SourceIP[0])
+	result = append(result, ipPaket.SourceIP[1])
+	result = append(result, ipPaket.SourceIP[2])
+	result = append(result, ipPaket.SourceIP[3])
+	result = append(result, ipPaket.DestinationIP[0])
+	result = append(result, ipPaket.DestinationIP[1])
+	result = append(result, ipPaket.DestinationIP[2])
+	result = append(result, ipPaket.DestinationIP[3])
+	result = append(result, ipPaket.Payload...)
 
+	return result, nil
+}
+
+func convertBooleanToByte(boolean bool) byte {
+	if boolean {
+		return 1
+	}
+	return 0
 }
 
 func isChecksumValid(data []byte, headerLength uint16) bool {

@@ -2,7 +2,7 @@ package iphandler
 
 import (
 	"http-server/helper/test"
-	ipparser "http-server/ip-parser"
+	 "http-server/ip-parser"
 	"testing"
 	"time"
 )

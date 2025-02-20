@@ -42,7 +42,6 @@ func TestParseTCPFracment(t *testing.T) {
 		}
 
 		tcpSegment, err := ParseTCPSegment(tcpFrament, iPPseudoHeaderData, false)
-		PrintTcpSegment(tcpSegment)
 		test.AssertNoError(t, err)
 		test.AssertEquality(t, tcpSegment.SourcePort, 34188)
 		test.AssertEquality(t, tcpSegment.DestinationPort, 8884)

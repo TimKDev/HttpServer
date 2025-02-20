@@ -10,6 +10,7 @@ type IPPaket struct {
 	DontFracment        bool   // Wenn dies gesetzt ist, darf das IP Paket nicht frakmentiert werden, wenn es zu groß ist, wird es gedroppt
 	MoreFracmentsFollow bool   // Definiert, ob nach diesem Paket noch weitere Pakete folgen könnten.
 	FragmentOffset      uint16 // 13 bits: Fragment offset in 8-byte units
+	Checksum            uint16 //Checksum for the fields in the IP Header
 
 	TimeToLive byte       // TTL: Number of hops before packet is discarded
 	Protocol   IpProtocol // Protocol used in the data portion
