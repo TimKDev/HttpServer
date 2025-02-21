@@ -40,13 +40,12 @@ func TestParseIPPaketV4(t *testing.T) {
 		test.AssertNoError(t, err)
 		test.AssertSliceEquality(t, []byte{res.DestinationIP[0], res.DestinationIP[1], res.DestinationIP[2], res.DestinationIP[3]}, []byte{192, 168, 178, 51})
 		test.AssertSliceEquality(t, []byte{res.SourceIP[0], res.SourceIP[1], res.SourceIP[2], res.SourceIP[3]}, []byte{104, 208, 16, 90})
-		test.AssertEquality(t, res.DontFracment, false)
 		test.AssertEquality(t, res.Dscp, DefaultDSCP)
 		test.AssertEquality(t, res.Ecn, NonECT)
 		test.AssertEquality(t, res.IpHeaderBytesLength, 20)
 		test.AssertEquality(t, res.Identification, -496)
 		test.AssertEquality(t, res.MoreFracmentsFollow, false)
-		test.AssertEquality(t, res.DontFracment, false)
+		test.AssertEquality(t, res.DontFracment, true)
 		test.AssertEquality(t, res.FragmentOffset, 0)
 		test.AssertEquality(t, res.TimeToLive, 108)
 		test.AssertEquality(t, res.Protocol, TCP)
@@ -60,7 +59,7 @@ func TestParseIPPaketV4(t *testing.T) {
 			Ecn:                 0,
 			TotalLength:         52,
 			Identification:      -21006,
-			DontFracment:        false,
+			DontFracment:        true,
 			MoreFracmentsFollow: false,
 			FragmentOffset:      0,
 			TimeToLive:          64,

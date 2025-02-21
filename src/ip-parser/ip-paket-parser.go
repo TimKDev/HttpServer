@@ -34,8 +34,8 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 		Ecn:                 TypeOfService(data[1] & 0x03),
 		TotalLength:         uint16(data[2])<<8 | uint16(data[3]), //int16(data[2]) hängt 8 Nullen vor das Byte, z.B. 0000 0000 1101 0110. Danach werden diese um 8 nach links verschoben: 1101 0110 0000 0000. Danach kommt ein logisches Oder, d.h. die beiden Bytes data[2] und data[3] werden einfach aneinander gehängt um eine einzelne 16 Bit oder int16 Zahl zu definieren.
 		Identification:      int16(data[4])<<8 | int16(data[5]),
-		DontFracment:        data[6]&0x02 != 0,
-		MoreFracmentsFollow: data[6]&0x01 != 0,
+		DontFracment:        data[6]&0x40 != 0,
+		MoreFracmentsFollow: data[6]&0x20 != 0,
 		FragmentOffset:      uint16(data[6]&0x1F)<<8 | uint16(data[7]), // Bottom 13 bits
 		TimeToLive:          data[8],
 		Protocol:            IpProtocol(data[9]),
@@ -60,7 +60,7 @@ func ParseIPPaketToBytes(ipPaket *IPPaket) ([]byte, error) {
 	result = append(result, byte(ipPaket.Dscp)<<5|byte(ipPaket.Ecn))
 	result = append(result, bytes.ExtractTwoBytes(ipPaket.TotalLength)...)
 	result = append(result, bytes.ExtractTwoBytes(uint16(ipPaket.Identification))...)
-	result = append(result, byte(convertBooleanToByte(ipPaket.DontFracment)<<7)|byte(convertBooleanToByte(ipPaket.MoreFracmentsFollow)<<6)|byte(ipPaket.FragmentOffset>>8))
+	result = append(result, byte(convertBooleanToByte(ipPaket.DontFracment)<<6)|byte(convertBooleanToByte(ipPaket.MoreFracmentsFollow)<<5)|byte(ipPaket.FragmentOffset>>7))
 	result = append(result, byte(ipPaket.FragmentOffset))
 	result = append(result, ipPaket.TimeToLive)
 	result = append(result, byte(ipPaket.Protocol))
