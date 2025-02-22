@@ -20,7 +20,7 @@ func ParseTCPSegmentToBytes(segment *TCPSegment) []byte {
 	result = append(result, bytes.ExtractFourBytes(segment.SequenceNumber)...)
 	result = append(result, bytes.ExtractFourBytes(segment.AckNumber)...)
 	result = append(result, segment.DataOffset<<4)
-	result = append(result, segment.Flags)
+	result = append(result, byte(segment.Flags))
 	result = append(result, bytes.ExtractTwoBytes(segment.WindowSize)...)
 	result = append(result, bytes.ExtractTwoBytes(segment.Checksum)...)
 	result = append(result, bytes.ExtractTwoBytes(segment.UrgentPtr)...)
@@ -42,7 +42,7 @@ func ParseTCPSegment(tcpBytes []byte, ipPseudoHeaderData *IPPseudoHeaderData, ve
 		SequenceNumber:  bytes.CombineFourBytes(tcpBytes[4], tcpBytes[5], tcpBytes[6], tcpBytes[7]),
 		AckNumber:       bytes.CombineFourBytes(tcpBytes[8], tcpBytes[9], tcpBytes[10], tcpBytes[11]),
 		DataOffset:      tcpBytes[12] >> 4,
-		Flags:           tcpBytes[13],
+		Flags:           TCPFlag(tcpBytes[13]),
 		WindowSize:      bytes.CombineTwoBytes(tcpBytes[14], tcpBytes[15]),
 		Checksum:        bytes.CombineTwoBytes(tcpBytes[16], tcpBytes[17]),
 		UrgentPtr:       bytes.CombineTwoBytes(tcpBytes[18], tcpBytes[19]),

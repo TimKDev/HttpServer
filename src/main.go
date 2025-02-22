@@ -37,15 +37,25 @@ func main() {
 			continue
 		}
 
-		go process(buf[:n], addr)
+		go process(buf[:n], addr, fd)
 
 	}
 }
 
-func process(buffer []byte, addr syscall.Sockaddr) {
+func process(buffer []byte, addr syscall.Sockaddr, fd int) {
 	ipPaket, err := ipparser.ParseIPPaket(buffer)
 	if err != nil {
 		log.Printf("Ip parsing error: %v\n", err)
 	}
-	iphandler.HandleIPPackage(ipPaket)
+	ipPaketsToSend, err := iphandler.HandleIPPackage(ipPaket)
+	if err != nil {
+		log.Fatal("Ip handeling failed")
+	}
+	for _, packageToSend := range ipPaketsToSend {
+		//Was bedeutet dieses Flag?
+		fmt.Println("Addr:")
+		fmt.Println(addr)
+		syscall.Sendto(fd, packageToSend, 0, addr)
+	}
+
 }

@@ -21,7 +21,7 @@ type TCPSegment struct {
 	DataOffset uint8
 
 	// Flags is a set of 8 control bits used to manage the state of the connection.
-	Flags uint8
+	Flags TCPFlag
 
 	// WindowSize specifies the size of the receive window, which controls the flow of data.
 	WindowSize uint16

@@ -17,28 +17,28 @@ func PrintTcpSegment(tcpSegment *TCPSegment) {
 
 	// Print flags
 	fmt.Printf("  Flags:")
-	if tcpSegment.Flags&uint8(TCPFlagFIN) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagFIN) != 0 {
 		fmt.Printf(" FIN")
 	}
-	if tcpSegment.Flags&uint8(TCPFlagSYN) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagSYN) != 0 {
 		fmt.Printf(" SYN")
 	}
-	if tcpSegment.Flags&uint8(TCPFlagRST) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagRST) != 0 {
 		fmt.Printf(" RST")
 	}
-	if tcpSegment.Flags&uint8(TCPFlagPSH) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagPSH) != 0 {
 		fmt.Printf(" PSH")
 	}
-	if tcpSegment.Flags&uint8(TCPFlagACK) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagACK) != 0 {
 		fmt.Printf(" ACK")
 	}
-	if tcpSegment.Flags&uint8(TCPFlagURG) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagURG) != 0 {
 		fmt.Printf(" URG")
 	}
-	if tcpSegment.Flags&uint8(TCPFlagECE) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagECE) != 0 {
 		fmt.Printf(" ECE")
 	}
-	if tcpSegment.Flags&uint8(TCPFlagCWR) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagCWR) != 0 {
 		fmt.Printf(" CWR")
 	}
 	fmt.Printf("\n")
@@ -48,7 +48,7 @@ func PrintTcpSegment(tcpSegment *TCPSegment) {
 	fmt.Printf("  Checksum: 0x%04x\n", tcpSegment.Checksum)
 
 	// Print urgent pointer if URG flag is set
-	if tcpSegment.Flags&uint8(TCPFlagURG) != 0 {
+	if tcpSegment.Flags&TCPFlag(TCPFlagURG) != 0 {
 		fmt.Printf("  Urgent Pointer: %d\n", tcpSegment.UrgentPtr)
 	}
 

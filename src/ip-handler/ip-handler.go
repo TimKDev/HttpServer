@@ -22,7 +22,7 @@ var detectedCongestions [][4]byte
 var fracmentedPackages = make(map[string][]FracmentEntry)
 
 // TODO Entferne die direkte Abhängigkeit auf tcp-handler und tcp-parser, indem ein Interface für den TCP Handler definiert wird und dieses Interface in diese Methode reingegeben wird
-func HandleIPPackage(ipPackage *ipparser.IPPaket) {
+func HandleIPPackage(ipPackage *ipparser.IPPaket) ([][]byte, error) {
 	if ipPackage.Ecn == ipparser.CE {
 		if !slices.ContainsFunc(detectedCongestions, ipPackage.SourceIP, compareIPs) {
 			detectedCongestions = append(detectedCongestions, ipPackage.SourceIP)
@@ -39,13 +39,14 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) {
 		if ipPackage != nil {
 			delete(fracmentedPackages, key)
 		} else {
-			return
+			log.Print("Obtained fracment. Rest of the package is not complete.")
+			return nil, nil
 		}
 	}
 
 	if ipPackage.Protocol != ipparser.TCP {
 		log.Print("Protocol not supported. Package is dropped.")
-		return
+		return nil, nil
 	}
 	//TODO Diese Config muss von außen in diese Funktion hineingegeben werden.
 	tcpConfig := tcphandler.TcpHandlerConfig{
@@ -58,8 +59,41 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) {
 		Protocol:      uint8(ipPackage.Protocol),
 		TotalLength:   ipPackage.TotalLength,
 	}
-	tcphandler.HandleTcpSegment(ipPackage.Payload, &pseudoHeader, tcpConfig)
+	resPayload, err := tcphandler.HandleTcpSegment(ipPackage.Payload, &pseudoHeader, tcpConfig)
+	if err != nil {
+		log.Fatal("Tcp response could not been handled")
+	}
+	//TODO Hier brachen wir eine Factory Methode, die ein IPPaket in ein RawIPPakete umwandelt und die Lenghts und die Checksum berechnet.
+	//Hier müssen dann auch Dinge wie Frakmentierung passieren, falls nötig.
+	ipRes := ipparser.IPPaket{
+		IpHeaderBytesLength: 20,
+		Dscp:                ipparser.AF11,
+		Ecn:                 ipparser.AF11,
+		TotalLength:         20 + uint16(len(resPayload[0])),
+		Identification:      2324,
+		DontFracment:        true,
+		MoreFracmentsFollow: false,
+		FragmentOffset:      0,
+		Checksum:            0,
+		TimeToLive:          100,
+		Protocol:            ipparser.TCP,
+		SourceIP:            ipPackage.DestinationIP,
+		DestinationIP:       ipPackage.SourceIP,
+		Options:             make([]byte, 0),
+		Payload:             resPayload[0],
+	}
+
+	ipResAsBytes, err := ipparser.ParseIPPaketToBytes(&ipRes)
+	if err != nil {
+		log.Fatal("Ip package could not been parsed to bytes.")
+	}
+
+	res := make([][]byte, 0)
+	res = append(res, ipResAsBytes)
+
 	cleanupFracments()
+
+	return res, nil
 
 }
 
