@@ -23,7 +23,8 @@ func main() {
 
 	for {
 		buf := make([]byte, 65536)
-		n, addr, err := syscall.Recvfrom(fd, buf, 0)
+		n, _, err := syscall.Recvfrom(fd, buf, 0)
+
 		if err != nil {
 			fmt.Println("Some Error happend")
 			if err == syscall.EINTR {
@@ -37,12 +38,11 @@ func main() {
 			continue
 		}
 
-		go process(buf[:n], addr, fd)
-
+		go process(buf[:n], fd)
 	}
 }
 
-func process(buffer []byte, addr syscall.Sockaddr, fd int) {
+func process(buffer []byte, fd int) {
 	ipPaket, err := ipparser.ParseIPPaket(buffer)
 	if err != nil {
 		log.Printf("Ip parsing error: %v\n", err)
@@ -51,11 +51,20 @@ func process(buffer []byte, addr syscall.Sockaddr, fd int) {
 	if err != nil {
 		log.Fatal("Ip handeling failed")
 	}
-	for _, packageToSend := range ipPaketsToSend {
-		//Was bedeutet dieses Flag?
-		fmt.Println("Addr:")
-		fmt.Println(addr)
-		syscall.Sendto(fd, packageToSend, 0, addr)
+	if ipPaketsToSend == nil {
+		return
+	}
+	fmt.Println("Request IP Pakete:")
+	ipparser.Print(ipPaket)
+	for _, packageToSend := range ipPaketsToSend.PackagesToSend {
+		addr := syscall.SockaddrInet4{
+			Port: int(ipPaketsToSend.DestinationPort),
+			Addr: ipPaket.DestinationIP,
+		}
+		err := syscall.Sendto(fd, packageToSend, 0, &addr)
+		if err != nil {
+			log.Printf("Error sending packet: %v", err)
+		}
 	}
 
 }

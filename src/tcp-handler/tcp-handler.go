@@ -9,7 +9,12 @@ type TcpHandlerConfig struct {
 	VerifyChecksum bool
 }
 
-func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) ([][]byte, error) {
+type TCPSenderData struct {
+	SegmentsToSend  [][]byte
+	DestinationPort uint16
+}
+
+func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) (*TCPSenderData, error) {
 	tcpSegment, err := tcpparser.ParseTCPSegment(tcpPackage, ipPseudoHeaderData, config.VerifyChecksum)
 	if err != nil {
 		return nil, err
@@ -35,8 +40,13 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 	}
 
 	parsedTcpPackage := tcpparser.ParseTCPSegmentToBytes(&testRes)
-	res := make([][]byte, 0)
-	res = append(res, parsedTcpPackage)
+	resData := make([][]byte, 0)
+	resData = append(resData, parsedTcpPackage)
+
+	res := &TCPSenderData{
+		SegmentsToSend:  resData,
+		DestinationPort: tcpSegment.SourcePort,
+	}
 
 	return res, nil
 }

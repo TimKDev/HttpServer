@@ -28,18 +28,17 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 		return nil, fmt.Errorf("header checksum does not match: Package is dropped")
 	}
 
+	//TODO Validiere, dass die gegebene Länge im IP Paket mit der echten totalLength übereinstimmt.
+
 	paket := &IPPaket{
-		IpHeaderBytesLength: headerLength,
 		Dscp:                TypeOfService(data[1] & 0xFC),
 		Ecn:                 TypeOfService(data[1] & 0x03),
-		TotalLength:         uint16(data[2])<<8 | uint16(data[3]), //int16(data[2]) hängt 8 Nullen vor das Byte, z.B. 0000 0000 1101 0110. Danach werden diese um 8 nach links verschoben: 1101 0110 0000 0000. Danach kommt ein logisches Oder, d.h. die beiden Bytes data[2] und data[3] werden einfach aneinander gehängt um eine einzelne 16 Bit oder int16 Zahl zu definieren.
 		Identification:      int16(data[4])<<8 | int16(data[5]),
 		DontFracment:        data[6]&0x40 != 0,
 		MoreFracmentsFollow: data[6]&0x20 != 0,
 		FragmentOffset:      uint16(data[6]&0x1F)<<8 | uint16(data[7]), // Bottom 13 bits
 		TimeToLive:          data[8],
 		Protocol:            IpProtocol(data[9]),
-		Checksum:            bytes.CombineTwoBytes(data[10], data[11]),
 		SourceIP:            [4]byte{data[12], data[13], data[14], data[15]},
 		DestinationIP:       [4]byte{data[16], data[17], data[18], data[19]},
 		Payload:             data[headerLength:],
@@ -55,16 +54,19 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 }
 
 func ParseIPPaketToBytes(ipPaket *IPPaket) ([]byte, error) {
+	headerLength := 20 + len(ipPaket.Options)
+	totalLength := uint16(headerLength + len(ipPaket.Payload))
+
 	result := make([]byte, 0, 20)
-	result = append(result, byte(4<<4)|byte(ipPaket.IpHeaderBytesLength/4))
+	result = append(result, byte(4<<4)|byte(headerLength/4))
 	result = append(result, byte(ipPaket.Dscp)<<5|byte(ipPaket.Ecn))
-	result = append(result, bytes.ExtractTwoBytes(ipPaket.TotalLength)...)
+	result = append(result, bytes.ExtractTwoBytes(totalLength)...)
 	result = append(result, bytes.ExtractTwoBytes(uint16(ipPaket.Identification))...)
 	result = append(result, byte(convertBooleanToByte(ipPaket.DontFracment)<<6)|byte(convertBooleanToByte(ipPaket.MoreFracmentsFollow)<<5)|byte(ipPaket.FragmentOffset>>7))
 	result = append(result, byte(ipPaket.FragmentOffset))
 	result = append(result, ipPaket.TimeToLive)
 	result = append(result, byte(ipPaket.Protocol))
-	result = append(result, bytes.ExtractTwoBytes(ipPaket.Checksum)...)
+	result = append(result, bytes.ExtractTwoBytes(0)...)
 	result = append(result, ipPaket.SourceIP[0])
 	result = append(result, ipPaket.SourceIP[1])
 	result = append(result, ipPaket.SourceIP[2])
@@ -74,6 +76,9 @@ func ParseIPPaketToBytes(ipPaket *IPPaket) ([]byte, error) {
 	result = append(result, ipPaket.DestinationIP[2])
 	result = append(result, ipPaket.DestinationIP[3])
 	result = append(result, ipPaket.Payload...)
+
+	checksum := calculateChecksum(result, uint16(headerLength))
+	checksumAsBytes := bytes.ExtractTwoBytes(checksum)
 
 	return result, nil
 }
@@ -87,6 +92,10 @@ func convertBooleanToByte(boolean bool) byte {
 
 func isChecksumValid(data []byte, headerLength uint16) bool {
 	var checksum = uint16(data[10])<<8 | uint16(data[11])
+	return checksum == calculateChecksum(data, headerLength)
+}
+
+func calculateChecksum(data []byte, headerLength uint16) uint16 {
 	var sum uint32 = 0
 	for i := 0; i < int(headerLength); i += 2 {
 		if i == 10 { //Skip Checksum
@@ -104,5 +113,5 @@ func isChecksumValid(data []byte, headerLength uint16) bool {
 	}
 	res := uint16(sum)
 
-	return checksum == ^res
+	return ^res
 }

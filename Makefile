@@ -1,8 +1,10 @@
+DLV_PATH := $(shell which dlv)
+
 run: build
 	@./bin/httpServer
 
 debug: build
-	@dlv exec ./bin/httpServer --headless --listen=:2345 --api-version=2 --log
+	@sudo $(DLV_PATH) exec ./bin/httpServer --headless --listen=:2345 --api-version=2 --log
 
 build: 
 	@cd src && go build -o ../bin/httpServer ./main.go
