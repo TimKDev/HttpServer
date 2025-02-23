@@ -18,7 +18,7 @@ type TCPSegment struct {
 
 	// DataOffset indicates the size of the TCP header in 32-bit words.
 	// The top 4 bits represent the header length, and the lower 4 bits are reserved for future use.
-	DataOffset uint8
+	//DataOffset uint8
 
 	// Flags is a set of 8 control bits used to manage the state of the connection.
 	Flags TCPFlag
@@ -27,7 +27,7 @@ type TCPSegment struct {
 	WindowSize uint16
 
 	// Checksum is used for error-checking the header and data.
-	Checksum uint16
+	//Checksum uint16
 
 	// UrgentPtr is only valid if the URG flag is set. It points to urgent data in the segment.
 	UrgentPtr uint16

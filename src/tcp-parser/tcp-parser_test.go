@@ -32,6 +32,7 @@ func TestParseTCPFracment(t *testing.T) {
 	})
 
 	t.Run("parse valid tcp package and check headers", func(t *testing.T) {
+		//Checksum of the following package is again invalid. Therefore the checksum check is omitted (false parameter).
 		tcpFrament := []byte{0x85, 0x8c, 0x22, 0xb4, 0xb4, 0xb6, 0xe6, 0xc6, 0x43, 0xbe, 0xd7, 0x1b, 0x80, 0x10, 0x1, 0xbf, 0x8c, 0x83, 0x0, 0x0, 0x1, 0x1, 0x8, 0xa, 0x4d, 0xc6, 0x1c, 0xc7, 0x30, 0x18, 0x97, 0xc4}
 
 		iPPseudoHeaderData := &IPPseudoHeaderData{
@@ -47,31 +48,34 @@ func TestParseTCPFracment(t *testing.T) {
 		test.AssertEquality(t, tcpSegment.DestinationPort, 8884)
 		test.AssertEquality(t, tcpSegment.AckNumber, 1136580379)
 		test.AssertEquality(t, tcpSegment.SequenceNumber, 3031885510)
-		test.AssertEquality(t, tcpSegment.Checksum, 35971)
-		test.AssertEquality(t, tcpSegment.DataOffset, 8)
 		test.AssertEquality(t, tcpSegment.Flags, 16)
 		test.AssertEquality(t, tcpSegment.WindowSize, 447)
 		test.AssertEquality(t, tcpSegment.UrgentPtr, 0)
 	})
 
 	t.Run("parse back to byte array", func(t *testing.T) {
-		expected := []byte{0x85, 0x8c, 0x22, 0xb4, 0xb4, 0xb6, 0xe6, 0xc6, 0x43, 0xbe, 0xd7, 0x1b, 0x80, 0x10, 0x1, 0xbf, 0x8c, 0x83, 0x0, 0x0, 0x1, 0x1, 0x8, 0xa, 0x4d, 0xc6, 0x1c, 0xc7, 0x30, 0x18, 0x97, 0xc4}
+		expected := []byte{0x85, 0x8c, 0x22, 0xb4, 0xb4, 0xb6, 0xe6, 0xc6, 0x43, 0xbe, 0xd7, 0x1b, 0x80, 0x10, 0x1, 0xbf, 0x57, 0x8b, 0x0, 0x0, 0x1, 0x1, 0x8, 0xa, 0x4d, 0xc6, 0x1c, 0xc7, 0x30, 0x18, 0x97, 0xc4}
+
+		iPPseudoHeaderData := &IPPseudoHeaderData{
+			SourceIP:      [4]byte{192, 168, 178, 48},
+			DestinationIP: [4]byte{18, 208, 6, 180},
+			Protocol:      6,
+			TotalLength:   52,
+		}
 
 		tcpSegment := &TCPSegment{
 			SourcePort:      34188,
 			DestinationPort: 8884,
 			AckNumber:       1136580379,
 			SequenceNumber:  3031885510,
-			DataOffset:      8,
 			Flags:           16,
 			WindowSize:      447,
 			UrgentPtr:       0,
-			Checksum:        0x8c83,
 			Options:         []byte{0x1, 0x1, 0x8, 0xa, 0x4d, 0xc6, 0x1c, 0xc7, 0x30, 0x18, 0x97, 0xc4},
 			Payload:         []byte{},
 		}
 
-		tcpSegmentInBytes := ParseTCPSegmentToBytes(tcpSegment)
+		tcpSegmentInBytes := ParseTCPSegmentToBytes(tcpSegment, iPPseudoHeaderData)
 		test.AssertSliceEquality(t, tcpSegmentInBytes, expected)
 	})
 }

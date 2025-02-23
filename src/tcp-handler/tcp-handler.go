@@ -22,24 +22,28 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 	if tcpSegment.DestinationPort != uint16(config.Port) {
 		return nil, nil
 	}
-	tcpparser.PrintTcpSegment(tcpSegment)
 
 	//TODO Hier brachen wir eine Factory Methode, die ein TCPSegment in ein Rawumwandelt und die Lenghts und die Checksum berechnet.
 	testRes := tcpparser.TCPSegment{
 		SourcePort:      uint16(config.Port),
 		DestinationPort: tcpSegment.SourcePort,
 		SequenceNumber:  121233,
-		AckNumber:       tcpSegment.AckNumber + 1,
-		DataOffset:      0x04,
-		Flags:           tcpparser.TCPFlagACK,
+		AckNumber:       tcpSegment.SequenceNumber + 1,
+		Flags:           tcpparser.TCPFlagACK | tcpparser.TCPFlagSYN,
 		WindowSize:      1000,
-		Checksum:        0,
 		UrgentPtr:       0,
 		Options:         make([]byte, 0),
 		Payload:         make([]byte, 0),
 	}
 
-	parsedTcpPackage := tcpparser.ParseTCPSegmentToBytes(&testRes)
+	senderIpPseudoHeader := &tcpparser.IPPseudoHeaderData{
+		SourceIP:      ipPseudoHeaderData.DestinationIP,
+		DestinationIP: ipPseudoHeaderData.SourceIP,
+		Protocol:      ipPseudoHeaderData.Protocol,
+		TotalLength:   20 + uint16(len(testRes.Options)) + uint16(len(testRes.Payload)),
+	}
+
+	parsedTcpPackage := tcpparser.ParseTCPSegmentToBytes(&testRes, senderIpPseudoHeader)
 	resData := make([][]byte, 0)
 	resData = append(resData, parsedTcpPackage)
 

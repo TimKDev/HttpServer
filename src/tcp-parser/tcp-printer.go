@@ -12,9 +12,6 @@ func PrintTcpSegment(tcpSegment *TCPSegment) {
 	fmt.Printf("  Sequence Number: %d\n", tcpSegment.SequenceNumber)
 	fmt.Printf("  Acknowledgment Number: %d\n", tcpSegment.AckNumber)
 
-	// Print header length
-	fmt.Printf("  Header Length: %d bytes\n", tcpSegment.DataOffset*4)
-
 	// Print flags
 	fmt.Printf("  Flags:")
 	if tcpSegment.Flags&TCPFlag(TCPFlagFIN) != 0 {
@@ -45,7 +42,6 @@ func PrintTcpSegment(tcpSegment *TCPSegment) {
 
 	// Print other fields
 	fmt.Printf("  Window Size: %d\n", tcpSegment.WindowSize)
-	fmt.Printf("  Checksum: 0x%04x\n", tcpSegment.Checksum)
 
 	// Print urgent pointer if URG flag is set
 	if tcpSegment.Flags&TCPFlag(TCPFlagURG) != 0 {

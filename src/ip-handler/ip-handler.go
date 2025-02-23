@@ -63,7 +63,7 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) (*IPSenderData, error) {
 		SourceIP:      ipPackage.SourceIP,
 		DestinationIP: ipPackage.DestinationIP,
 		Protocol:      uint8(ipPackage.Protocol),
-		TotalLength:   ipPackage.TotalLength,
+		TotalLength:   uint16(len(ipPackage.Payload)),
 	}
 	resPayload, err := tcphandler.HandleTcpSegment(ipPackage.Payload, &pseudoHeader, tcpConfig)
 	if err != nil {
@@ -88,9 +88,6 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) (*IPSenderData, error) {
 		Options:             make([]byte, 0),
 		Payload:             resPayload.SegmentsToSend[0],
 	}
-
-	fmt.Println("Answer:")
-	ipparser.Print(&ipRes)
 
 	ipResAsBytes, err := ipparser.ParseIPPaketToBytes(&ipRes)
 	if err != nil {

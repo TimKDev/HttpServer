@@ -24,19 +24,20 @@ func buildPackageFromFracments(fracmentedPackages map[string][]FracmentEntry) *i
 func combineFracments(fracmentParts []FracmentEntry) (*ipparser.IPPaket, error) {
 	// Fracments are combined by taking the headers of the first package fracment and combining the payloads of the other packages
 	var firstPackage *ipparser.IPPaket
-	var totalSizePayload uint16
+	var additionalPayloadSize uint16
 	for _, fracment := range fracmentParts {
 		if fracment.Package.FragmentOffset == 0 {
 			firstPackage = fracment.Package
+			continue
 		}
-		totalSizePayload += uint16(fracment.Package.TotalLength) - uint16(fracment.Package.IpHeaderBytesLength)
+		additionalPayloadSize += uint16(len(fracment.Package.Payload))
 	}
 
 	if firstPackage == nil {
 		return nil, errors.New("first fracment is missing")
 	}
 
-	combinedPayload := make([]byte, totalSizePayload)
+	combinedPayload := make([]byte, uint16(len(firstPackage.Payload))+additionalPayloadSize)
 	for _, fracment := range fracmentParts {
 		offset := int(fracment.Package.FragmentOffset * 8)
 		for i, val := range fracment.Package.Payload {
@@ -45,10 +46,9 @@ func combineFracments(fracmentParts []FracmentEntry) (*ipparser.IPPaket, error) 
 	}
 
 	res := &ipparser.IPPaket{
-		IpHeaderBytesLength: firstPackage.IpHeaderBytesLength,
 		Dscp:                firstPackage.Dscp,
 		Ecn:                 firstPackage.Ecn,
-		TotalLength:         firstPackage.IpHeaderBytesLength + uint16(totalSizePayload),
+		TotalLength:         firstPackage.TotalLength + uint16(additionalPayloadSize),
 		Identification:      firstPackage.Identification,
 		DontFracment:        firstPackage.DontFracment,
 		MoreFracmentsFollow: false,
@@ -75,7 +75,7 @@ func isPackageComplete(fracmentParts []FracmentEntry) bool {
 			continue
 		}
 		offset := uint16(fracment.FragmentOffset * 8)
-		fracmentLength := uint16(fracment.TotalLength) - uint16(fracment.IpHeaderBytesLength)
+		fracmentLength := uint16(len(fracment.Payload))
 		neededOffsets = append(neededOffsets, offset+fracmentLength)
 	}
 	if !containsLastFracment {

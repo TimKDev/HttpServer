@@ -2,7 +2,7 @@ package iphandler
 
 import (
 	"http-server/helper/test"
-	 "http-server/ip-parser"
+	"http-server/ip-parser"
 	"testing"
 	"time"
 )
@@ -10,7 +10,6 @@ import (
 func TestIPFragmentationCombination(t *testing.T) {
 	t.Run("should correctly combine two IP fragments", func(t *testing.T) {
 		fragment1 := &ipparser.IPPaket{
-			IpHeaderBytesLength: 20,
 			Dscp:                1,
 			Ecn:                 2,
 			TotalLength:         28,
@@ -26,7 +25,6 @@ func TestIPFragmentationCombination(t *testing.T) {
 		}
 
 		fragment2 := &ipparser.IPPaket{
-			IpHeaderBytesLength: 20,
 			TotalLength:         23,
 			Identification:      12345,
 			MoreFracmentsFollow: false,
@@ -61,7 +59,6 @@ func TestIPFragmentationCombination(t *testing.T) {
 
 	t.Run("should return nil for incomplete fragments", func(t *testing.T) {
 		fragment1 := &ipparser.IPPaket{
-			IpHeaderBytesLength: 20,
 			Identification:      12345,
 			MoreFracmentsFollow: true,
 			FragmentOffset:      0,
@@ -73,7 +70,6 @@ func TestIPFragmentationCombination(t *testing.T) {
 
 		// Missing middle fragment
 		fragment3 := &ipparser.IPPaket{
-			IpHeaderBytesLength: 20,
 			Identification:      12345,
 			MoreFracmentsFollow: false,
 			FragmentOffset:      4,

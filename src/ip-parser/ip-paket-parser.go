@@ -28,11 +28,10 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 		return nil, fmt.Errorf("header checksum does not match: Package is dropped")
 	}
 
-	//TODO Validiere, dass die gegebene Länge im IP Paket mit der echten totalLength übereinstimmt.
-
 	paket := &IPPaket{
 		Dscp:                TypeOfService(data[1] & 0xFC),
 		Ecn:                 TypeOfService(data[1] & 0x03),
+		TotalLength:         bytes.CombineTwoBytes(data[2], data[3]),
 		Identification:      int16(data[4])<<8 | int16(data[5]),
 		DontFracment:        data[6]&0x40 != 0,
 		MoreFracmentsFollow: data[6]&0x20 != 0,
@@ -50,13 +49,15 @@ func ParseIPPaket(data []byte) (*IPPaket, error) {
 		copy(paket.Options, data[20:headerLength])
 	}
 
+	if len(data) != int(paket.TotalLength) || paket.TotalLength != headerLength+uint16(len(paket.Options))+uint16(len(paket.Payload)) {
+		return nil, fmt.Errorf("inconsistent length definitions in the package, package is dropped")
+	}
+
 	return paket, nil
 }
 
 func ParseIPPaketToBytes(ipPaket *IPPaket) ([]byte, error) {
-	headerLength := 20 + len(ipPaket.Options)
-	totalLength := uint16(headerLength + len(ipPaket.Payload))
-
+	headerLength, totalLength := calculateLengths(ipPaket)
 	result := make([]byte, 0, 20)
 	result = append(result, byte(4<<4)|byte(headerLength/4))
 	result = append(result, byte(ipPaket.Dscp)<<5|byte(ipPaket.Ecn))
@@ -66,7 +67,7 @@ func ParseIPPaketToBytes(ipPaket *IPPaket) ([]byte, error) {
 	result = append(result, byte(ipPaket.FragmentOffset))
 	result = append(result, ipPaket.TimeToLive)
 	result = append(result, byte(ipPaket.Protocol))
-	result = append(result, bytes.ExtractTwoBytes(0)...)
+	result = append(result, bytes.ExtractTwoBytes(0)...) //Set Checksum to 0
 	result = append(result, ipPaket.SourceIP[0])
 	result = append(result, ipPaket.SourceIP[1])
 	result = append(result, ipPaket.SourceIP[2])
@@ -79,8 +80,17 @@ func ParseIPPaketToBytes(ipPaket *IPPaket) ([]byte, error) {
 
 	checksum := calculateChecksum(result, uint16(headerLength))
 	checksumAsBytes := bytes.ExtractTwoBytes(checksum)
+	result[10] = checksumAsBytes[0]
+	result[11] = checksumAsBytes[1]
 
 	return result, nil
+}
+
+func calculateLengths(ipPaket *IPPaket) (uint16, uint16) {
+	headerLength := 20 + len(ipPaket.Options)
+	totalLength := headerLength + len(ipPaket.Payload)
+
+	return uint16(headerLength), uint16(totalLength)
 }
 
 func convertBooleanToByte(boolean bool) byte {
