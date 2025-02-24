@@ -1,6 +1,7 @@
 package tcphandler
 
 import (
+	"fmt"
 	"http-server/tcp-parser"
 )
 
@@ -23,16 +24,19 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 		return nil, nil
 	}
 
-	//TODO Hier brachen wir eine Factory Methode, die ein TCPSegment in ein Rawumwandelt und die Lenghts und die Checksum berechnet.
+	fmt.Println("Received TCP Package:")
+	tcpparser.PrintTcpSegment(tcpSegment)
+	// For SYN packets, respond with SYN-ACK
+	//if tcpSegment.Flags == tcpparser.TCPFlagSYN {
 	testRes := tcpparser.TCPSegment{
 		SourcePort:      uint16(config.Port),
 		DestinationPort: tcpSegment.SourcePort,
-		SequenceNumber:  121233,
+		SequenceNumber:  0x12345678, // Use a valid initial sequence number
 		AckNumber:       tcpSegment.SequenceNumber + 1,
-		Flags:           tcpparser.TCPFlagACK | tcpparser.TCPFlagSYN,
-		WindowSize:      1000,
+		Flags:           tcpparser.TCPFlagSYN | tcpparser.TCPFlagACK,
+		WindowSize:      65535, // Use a standard window size
 		UrgentPtr:       0,
-		Options:         make([]byte, 0),
+		Options:         make([]byte, 0), // Copy options from request
 		Payload:         make([]byte, 0),
 	}
 
@@ -53,4 +57,7 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 	}
 
 	return res, nil
+	//}
+	return nil, nil
+
 }

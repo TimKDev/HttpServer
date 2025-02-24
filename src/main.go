@@ -15,13 +15,20 @@ type ServerConfig struct {
 func main() {
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
 	if err != nil {
-		log.Fatalf("Socket creation error: %v", err)
+		log.Fatalf("Raw socket creation error: %v", err)
 	}
 	defer syscall.Close(fd)
+
+	//This socket option tells the kernel that this application will create its own IP Headers
+	err = syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
+	if err != nil {
+		log.Fatalf("Failed to set IP_HDRINCL: %v", err)
+	}
 
 	fmt.Println("\nSocket created successfully")
 	fmt.Println("Waiting for TCP packets... (Press Ctrl+C to stop)")
 
+	test := 0
 	for {
 		buf := make([]byte, 65536)
 		n, _, err := syscall.Recvfrom(fd, buf, 0)
@@ -39,11 +46,15 @@ func main() {
 			continue
 		}
 
-		go process(buf[:n], fd)
+		if test > 1 {
+			log.Fatal("Received enough")
+		}
+
+		go process(buf[:n], fd, &test)
 	}
 }
 
-func process(buffer []byte, fd int) {
+func process(buffer []byte, fd int, test *int) {
 	ipPaket, err := ipparser.ParseIPPaket(buffer)
 	if err != nil {
 		log.Printf("Ip parsing error: %v\n", err)
@@ -55,20 +66,24 @@ func process(buffer []byte, fd int) {
 	if ipPaketsToSend == nil {
 		return
 	}
+	fmt.Println("Received TCP package.")
 	if err := dumpPacketToFile("request-dump.txt", buffer); err != nil {
 		log.Printf("Failed to dump packet: %v", err)
 	}
+	*test++
 	for _, packageToSend := range ipPaketsToSend.PackagesToSend {
 		addr := syscall.SockaddrInet4{
 			Port: int(ipPaketsToSend.DestinationPort),
 			Addr: ipPaket.DestinationIP,
 		}
+		fmt.Printf("Sending response to %v:%d\n", addr.Addr, addr.Port)
 		if err := dumpPacketToFile("response-dump.txt", packageToSend); err != nil {
 			log.Printf("Failed to dump packet: %v", err)
 		}
 		err := syscall.Sendto(fd, packageToSend, 0, &addr)
 		if err != nil {
 			log.Printf("Error sending packet: %v", err)
+			continue
 		}
 	}
 }
