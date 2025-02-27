@@ -10,12 +10,26 @@ type TcpHandlerConfig struct {
 	VerifyChecksum bool
 }
 
-type TCPSenderData struct {
+type TcpSenderData struct {
 	SegmentsToSend  [][]byte
 	DestinationPort uint16
 }
 
-func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) (*TCPSenderData, error) {
+type TcpDataSegments struct {
+	SequenceNumber uint32
+	Payload        []byte
+}
+
+type TcpSession struct {
+	DestinationIP    [4]byte
+	DestinationPort  uint16
+	ReceivedSegments []TcpDataSegments
+	LastSendAct      uint32
+	State            tcpparser.TCPFlag
+	WindowSize       uint16
+}
+
+func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) (*TcpSenderData, error) {
 	tcpSegment, err := tcpparser.ParseTCPSegment(tcpPackage, ipPseudoHeaderData, config.VerifyChecksum)
 	if err != nil {
 		return nil, err
@@ -51,7 +65,7 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 	resData := make([][]byte, 0)
 	resData = append(resData, parsedTcpPackage)
 
-	res := &TCPSenderData{
+	res := &TcpSenderData{
 		SegmentsToSend:  resData,
 		DestinationPort: tcpSegment.SourcePort,
 	}

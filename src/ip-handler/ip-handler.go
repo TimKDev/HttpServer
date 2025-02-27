@@ -28,7 +28,11 @@ var detectedCongestions [][4]byte
 var fracmentedPackages = make(map[string][]FracmentEntry)
 
 // TODO Entferne die direkte Abhängigkeit auf tcp-handler und tcp-parser, indem ein Interface für den TCP Handler definiert wird und dieses Interface in diese Methode reingegeben wird
-func HandleIPPackage(ipPackage *ipparser.IPPaket) (*IPSenderData, error) {
+func HandleIPPackage(buffer []byte) error {
+	ipPackage, err := ipparser.ParseIPPaket(buffer)
+	if err != nil {
+		return fmt.Errorf("Ip parsing error: %v\n", err)
+	}
 	if ipPackage.Ecn == ipparser.CE {
 		if !slices.ContainsFunc(detectedCongestions, ipPackage.SourceIP, compareIPs) {
 			detectedCongestions = append(detectedCongestions, ipPackage.SourceIP)
@@ -46,13 +50,13 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) (*IPSenderData, error) {
 			delete(fracmentedPackages, key)
 		} else {
 			log.Print("Obtained fracment. Rest of the package is not complete.")
-			return nil, nil
+			return nil
 		}
 	}
 
 	if ipPackage.Protocol != ipparser.TCP {
 		log.Print("Protocol not supported. Package is dropped.")
-		return nil, nil
+		return nil
 	}
 	//TODO Diese Config muss von außen in diese Funktion hineingegeben werden.
 	tcpConfig := tcphandler.TcpHandlerConfig{
@@ -105,7 +109,7 @@ func HandleIPPackage(ipPackage *ipparser.IPPaket) (*IPSenderData, error) {
 		DestinationPort: resPayload.DestinationPort,
 	}
 
-	return res, nil
+	return nil 
 
 }
 
