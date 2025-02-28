@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
-	iphandler "http-server/ip-handler"
-	ipparser "http-server/ip-parser"
+	"http-server/receiver-worker"
+	"http-server/sender-worker"
 	"log"
 	"os"
+	"os/signal"
 	"syscall"
 )
 
@@ -14,6 +14,13 @@ type ServerConfig struct {
 
 func main() {
 	socket := createRawSocket()
+	defer syscall.Close(socket)
+	go senderworker.Start(socket)
+	go receiverworker.Start(socket)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 }
 
 func createRawSocket() int {
@@ -21,7 +28,6 @@ func createRawSocket() int {
 	if err != nil {
 		log.Fatalf("Raw socket creation error: %v", err)
 	}
-	defer syscall.Close(fd)
 
 	//This socket option tells the kernel that this application will create its own IP Headers
 	err = syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)

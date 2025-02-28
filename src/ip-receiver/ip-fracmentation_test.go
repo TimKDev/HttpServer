@@ -1,4 +1,4 @@
-package iphandler
+package ipreceiver
 
 import (
 	"http-server/helper/test"

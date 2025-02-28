@@ -8,34 +8,37 @@ import (
 )
 
 type SenderMessage struct {
+	DestinationIP   [4]byte
+	DestinationPort uint16
+	IPPaket         []byte
 }
 
-// Implement a queue in Go
 var senderQueue *queue.DelayedQueue[SenderMessage]
 
 func Start(socket int) {
+	log.Println("Start Sender Worker.")
 	for {
 		nextQueueItem := senderQueue.Pop()
 		if nextQueueItem == nil {
 			continue
 		}
-		ProcessMessage(socket, nextQueueItem)
+		processMessage(socket, nextQueueItem)
 	}
 }
 
-func ProcessMessage(socket int, message *SenderMessage) {
+func Send(message *SenderMessage, delayedUntil *time.Time) {
+	senderQueue.Add(message, delayedUntil)
+}
+
+func processMessage(socket int, message *SenderMessage) {
 	addr := syscall.SockaddrInet4{
-		Port: int(ipPaketsToSend.DestinationPort),
-		Addr: ipPaket.DestinationIP,
+		Port: int(message.DestinationPort),
+		Addr: message.DestinationIP,
 	}
 
-	err := syscall.Sendto(socket, packageToSend, 0, &addr)
+	err := syscall.Sendto(socket, message.IPPaket, 0, &addr)
 	if err != nil {
 		log.Printf("Error sending packet: %v", err)
 		return
 	}
-}
-
-func Send(message *SenderMessage, delayedUntil time.Time) {
-	senderQueue.Add(message, delayedUntil)
 }

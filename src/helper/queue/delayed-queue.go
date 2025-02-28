@@ -7,11 +7,11 @@ import (
 
 type DelayedQueue[T any] struct {
 	Message      *T
-	DelayedUntil time.Time
+	DelayedUntil *time.Time
 	NextMessage  *DelayedQueue[T]
 }
 
-func (queue *DelayedQueue[T]) Add(message *T, delayedUntil time.Time) {
+func (queue *DelayedQueue[T]) Add(message *T, delayedUntil *time.Time) {
 	lastQueueItem := queue.GetLastQueueItem()
 	newQueueItem := DelayedQueue[T]{
 		Message:      message,
@@ -27,7 +27,7 @@ func (queue *DelayedQueue[T]) Pop() *T {
 	}
 	resQueueItem := queue
 	queue = resQueueItem.NextMessage
-	if queue.DelayedUntil.Before(time.Now()) {
+	if queue.DelayedUntil != nil && queue.DelayedUntil.Before(time.Now()) {
 		queue.Add(resQueueItem.Message, resQueueItem.DelayedUntil)
 		return nil
 	}

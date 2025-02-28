@@ -1,4 +1,4 @@
-package iphandler
+package ipreceiver
 
 import (
 	"errors"
