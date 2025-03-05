@@ -27,12 +27,12 @@ func Start(fd int) {
 			continue
 		}
 
-		go process(buf[:n], fd)
+		go process(buf[:n])
 	}
 
 }
 
-func process(buffer []byte, fd int) {
+func process(buffer []byte) {
 	err := ipreceiver.HandleIPPackage(buffer)
 	if err != nil {
 		log.Fatal("IP handeling failed")
