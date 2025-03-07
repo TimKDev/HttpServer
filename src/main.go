@@ -1,8 +1,8 @@
 package main
 
 import (
-	"http-server/receiver-worker"
-	"http-server/sender-worker"
+	receiverworker "http-server/receiver-worker"
+	senderworker "http-server/sender-worker"
 	"log"
 	"os"
 	"os/signal"
@@ -15,7 +15,7 @@ type ServerConfig struct {
 func main() {
 	socket := createRawSocket()
 	defer syscall.Close(socket)
-	go senderworker.Start(socket)
+	go senderworker.Start()
 	go receiverworker.Start(socket)
 
 	sigChan := make(chan os.Signal, 1)

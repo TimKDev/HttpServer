@@ -1,7 +1,7 @@
 package receiverworker
 
 import (
-	"http-server/ip-receiver"
+	ipreceiver "http-server/ip-receiver"
 	"log"
 	"syscall"
 )
@@ -26,7 +26,6 @@ func Start(fd int) {
 		if n <= 0 {
 			continue
 		}
-
 		go process(buf[:n])
 	}
 

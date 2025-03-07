@@ -27,7 +27,7 @@ func (queue *DelayedQueue[T]) Pop() *T {
 	}
 	resQueueItem := queue
 	queue = resQueueItem.NextMessage
-	if queue.DelayedUntil != nil && queue.DelayedUntil.Before(time.Now()) {
+	if resQueueItem.DelayedUntil != nil && resQueueItem.DelayedUntil.Before(time.Now()) {
 		queue.Add(resQueueItem.Message, resQueueItem.DelayedUntil)
 		return nil
 	}

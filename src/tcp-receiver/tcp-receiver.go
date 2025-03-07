@@ -2,10 +2,9 @@ package tcpreceiver
 
 import (
 	"fmt"
-	"http-server/tcp-parser"
-	"http-server/tcp-sender"
+	tcpparser "http-server/tcp-parser"
+	tcpsender "http-server/tcp-sender"
 	"log"
-	"math/rand"
 	"slices"
 )
 
@@ -61,7 +60,8 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 }
 
 func handleSYN(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) {
-	serverSequenceNum := rand.Uint32()
+	//serverSequenceNum := rand.Uint32()
+	serverSequenceNum := uint32(1)
 	serverWindowSize := uint16(65535) // Use a standard window size
 
 	newSession := TcpSession{
@@ -91,15 +91,15 @@ func handleSYN(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IP
 		Flags:           tcpparser.TCPFlagSYN | tcpparser.TCPFlagACK,
 		WindowSize:      serverWindowSize,
 		UrgentPtr:       0,
-		Options:         make([]byte, 0), // Copy options from request
+		Options:         tcpSegment.Options, // Copy options from request
 		Payload:         make([]byte, 0),
 	}
 
 	tcpsender.SendTCPSegment(ipPseudoHeaderData.DestinationIP, ipPseudoHeaderData.SourceIP, &synAckRes)
 }
 
-func handleACK() {
-	//.....
+func handleACK(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) {
+
 }
 
 func AddSession(session *TcpSession) error {

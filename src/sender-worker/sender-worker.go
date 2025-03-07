@@ -15,19 +15,42 @@ type SenderMessage struct {
 
 var senderQueue *queue.DelayedQueue[SenderMessage]
 
-func Start(socket int) {
+func Start() {
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
+	if err != nil {
+		log.Fatalf("socket creation error: %v", err)
+	}
+
+	// Set IP_HDRINCL to tell kernel we're including our own IP header
+	err = syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
+	if err != nil {
+		log.Fatalf("failed to set IP_HDRINCL: %v", err)
+	}
+
+	log.Println("Send socket created successfully")
 	log.Println("Start Sender Worker.")
 	for {
+		if senderQueue == nil {
+			continue
+		}
 		nextQueueItem := senderQueue.Pop()
 		if nextQueueItem == nil {
 			continue
 		}
-		processMessage(socket, nextQueueItem)
+		go processMessage(fd, nextQueueItem)
 	}
 }
 
 func Send(message *SenderMessage, delayedUntil *time.Time) {
-	senderQueue.Add(message, delayedUntil)
+	if senderQueue == nil {
+		senderQueue = &queue.DelayedQueue[SenderMessage]{
+			Message:      message,
+			DelayedUntil: delayedUntil,
+			NextMessage:  nil,
+		}
+	} else {
+		senderQueue.Add(message, delayedUntil)
+	}
 }
 
 func processMessage(socket int, message *SenderMessage) {
