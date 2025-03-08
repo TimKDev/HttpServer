@@ -50,8 +50,7 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 
 	//Syn => Erstellt eine neue TCP Session und schickt ein SYNACK
 	if tcpSegment.Flags == tcpparser.TCPFlagSYN {
-		fmt.Println("Found Syn")
-		//handleSYN(*tcpSegment, ipPseudoHeaderData, config)
+		handleSYN(*tcpSegment, ipPseudoHeaderData, config)
 	}
 	if tcpSegment.Flags == tcpparser.TCPFlagACK {
 		handleACK(*tcpSegment, ipPseudoHeaderData, config)
