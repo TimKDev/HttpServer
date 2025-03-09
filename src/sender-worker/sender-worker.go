@@ -1,6 +1,7 @@
 package senderworker
 
 import (
+	"fmt"
 	"http-server/helper/queue"
 	"log"
 	"syscall"
@@ -33,7 +34,7 @@ func Start() {
 		if senderQueue == nil {
 			continue
 		}
-		nextQueueItem := senderQueue.Pop()
+		nextQueueItem := queue.PopNextItem(&senderQueue)
 		if nextQueueItem == nil {
 			continue
 		}
@@ -59,6 +60,7 @@ func processMessage(socket int, message *SenderMessage) {
 		Addr: message.DestinationIP,
 	}
 
+	fmt.Println("ich schicke was!!!")
 	err := syscall.Sendto(socket, message.IPPaket, 0, &addr)
 	if err != nil {
 		log.Printf("Error sending packet: %v", err)

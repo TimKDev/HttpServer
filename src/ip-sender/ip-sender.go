@@ -1,8 +1,8 @@
 package ipsender
 
 import (
-	"http-server/ip-parser"
-	"http-server/sender-worker"
+	ipparser "http-server/ip-parser"
+	senderworker "http-server/sender-worker"
 )
 
 func SendIPPackage(sourceIP [4]byte, destinationIP [4]byte, destinationPort uint16, payload []byte) error {
@@ -10,7 +10,7 @@ func SendIPPackage(sourceIP [4]byte, destinationIP [4]byte, destinationPort uint
 		Dscp:                ipparser.DefaultDSCP,
 		Ecn:                 ipparser.NonECT,
 		TotalLength:         uint16(20 + len(payload)),
-		Identification:      0,
+		Identification:      2324,
 		DontFracment:        true,
 		MoreFracmentsFollow: false,
 		FragmentOffset:      0,

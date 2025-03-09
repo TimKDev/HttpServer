@@ -12,6 +12,9 @@ type DelayedQueue[T any] struct {
 }
 
 func (queue *DelayedQueue[T]) Add(message *T, delayedUntil *time.Time) {
+	if queue == nil {
+		return
+	}
 	lastQueueItem := queue.GetLastQueueItem()
 	newQueueItem := DelayedQueue[T]{
 		Message:      message,
@@ -21,20 +24,34 @@ func (queue *DelayedQueue[T]) Add(message *T, delayedUntil *time.Time) {
 	lastQueueItem.NextMessage = &newQueueItem
 }
 
-func (queue *DelayedQueue[T]) Pop() *T {
+func PopNextItem[T any](queuePointer **DelayedQueue[T]) *T {
+	queue := *queuePointer
 	if queue == nil {
 		return nil
 	}
 	resQueueItem := queue
-	queue = resQueueItem.NextMessage
-	if resQueueItem.DelayedUntil != nil && resQueueItem.DelayedUntil.Before(time.Now()) {
+	if resQueueItem.DelayedUntil != nil && resQueueItem.DelayedUntil.After(time.Now()) {
 		queue.Add(resQueueItem.Message, resQueueItem.DelayedUntil)
+		RemoveFirstItem(queuePointer)
 		return nil
 	}
-	return resQueueItem.Message
+	RemoveFirstItem(queuePointer)
+
+	return queue.Message
+
+}
+
+func RemoveFirstItem[T any](queuePointer **DelayedQueue[T]) {
+	if *queuePointer == nil {
+		return
+	}
+	*queuePointer = (*queuePointer).NextMessage
 }
 
 func (queue *DelayedQueue[T]) GetLastQueueItem() *DelayedQueue[T] {
+	if queue == nil {
+		return nil
+	}
 	counter := 0
 	for queue.NextMessage != nil {
 		queue = queue.NextMessage
@@ -45,4 +62,12 @@ func (queue *DelayedQueue[T]) GetLastQueueItem() *DelayedQueue[T] {
 	}
 
 	return queue
+}
+
+func NewDelayedQueue[T any](message *T, delayedUntil *time.Time) *DelayedQueue[T] {
+	return &DelayedQueue[T]{
+		Message:      message,
+		DelayedUntil: delayedUntil,
+		NextMessage:  nil,
+	}
 }
