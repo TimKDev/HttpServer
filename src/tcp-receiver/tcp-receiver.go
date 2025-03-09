@@ -2,9 +2,11 @@ package tcpreceiver
 
 import (
 	"fmt"
+	"http-server/http-receiver"
 	"http-server/tcp-parser"
 	"http-server/tcp-sender"
 	"log"
+	"math/rand/v2"
 	"slices"
 )
 
@@ -13,31 +15,7 @@ type TcpHandlerConfig struct {
 	VerifyChecksum bool
 }
 
-type TcpDataSegments struct {
-	SequenceNumber uint32
-	Payload        []byte
-}
-
-type TcpSessionStatus int
-
-const (
-	WaitingForHandShake   TcpSessionStatus = 0
-	ConnectionEstablished TcpSessionStatus = 1
-)
-
-type TcpSession struct {
-	DestinationIP          [4]byte
-	DestinationPort        uint16
-	ReceivedSegments       []TcpDataSegments
-	SendedSegments         []TcpDataSegments
-	LastSendAck            uint32
-	LastSendSequenceNumber uint32
-	State                  TcpSessionStatus
-	ClientWindowSize       uint16
-	ServerWindowSize       uint16
-}
-
-var sessions = make([]*TcpSession, 0)
+var sessions = make([]*tcpsender.TcpSession, 0)
 
 func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) error {
 	tcpSegment, err := tcpparser.ParseTCPSegment(tcpPackage, ipPseudoHeaderData, config.VerifyChecksum)
@@ -48,32 +26,64 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 		return nil
 	}
 
-	//Syn => Erstellt eine neue TCP Session und schickt ein SYNACK
-	if tcpSegment.Flags == tcpparser.TCPFlagSYN {
+	if isFlagSet(tcpSegment.Flags, tcpparser.TCPFlagSYN) {
 		handleSYN(*tcpSegment, ipPseudoHeaderData, config)
 	}
-	if tcpSegment.Flags == tcpparser.TCPFlagACK {
+	if isFlagSet(tcpSegment.Flags, tcpparser.TCPFlagACK) {
 		handleACK(*tcpSegment, ipPseudoHeaderData, config)
+		handleSessions()
 	}
 
 	return nil
 }
 
+func handleSessions() {
+	for _, session := range sessions {
+		slices.SortFunc(session.ReceivedSegments, func(a tcpsender.TcpDataSegment, b tcpsender.TcpDataSegment) int {
+			return int(b.SequenceNumber) - int(a.SequenceNumber)
+		})
+
+		resBody := make([]byte, 0)
+		isIncomplete := false
+		for i, data := range session.ReceivedSegments {
+			if i != 0 {
+				prevData := session.ReceivedSegments[i-1]
+				if prevData.SequenceNumber+uint32(len(prevData.Payload)) != data.SequenceNumber {
+					isIncomplete = true
+					break
+				}
+			}
+			resBody = append(resBody, data.Payload...)
+		}
+
+		if isIncomplete {
+			continue
+		}
+
+		go httpreceiver.HandleHttpRequest(session, resBody)
+	}
+}
+
+func isFlagSet(bitEnum tcpparser.TCPFlag, flag tcpparser.TCPFlag) bool {
+	return bitEnum&flag == flag
+}
+
 func handleSYN(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) {
-	//serverSequenceNum := rand.Uint32()
-	serverSequenceNum := uint32(1)
+	serverSequenceNum := rand.Uint32()
 	serverWindowSize := uint16(65535) // Use a standard window size
 
-	newSession := TcpSession{
-		DestinationIP:          ipPseudoHeaderData.SourceIP,
-		DestinationPort:        tcpSegment.SourcePort,
-		ClientWindowSize:       tcpSegment.WindowSize,
-		ServerWindowSize:       serverWindowSize,
-		ReceivedSegments:       make([]TcpDataSegments, 0),
-		SendedSegments:         make([]TcpDataSegments, 0),
-		LastSendSequenceNumber: serverSequenceNum,
-		LastSendAck:            tcpSegment.SequenceNumber + 1,
-		State:                  WaitingForHandShake,
+	newSession := tcpsender.TcpSession{
+		SourceIP:           ipPseudoHeaderData.DestinationIP,
+		DestinationIP:      ipPseudoHeaderData.SourceIP,
+		SourcePort:         tcpSegment.DestinationPort,
+		DestinationPort:    tcpSegment.SourcePort,
+		ClientWindowSize:   tcpSegment.WindowSize,
+		ServerWindowSize:   serverWindowSize,
+		ReceivedSegments:   make([]tcpsender.TcpDataSegment, 0),
+		SendedSegments:     make([]tcpsender.TcpDataSegment, 0),
+		NextSequenceNumber: serverSequenceNum,
+		LastSendAck:        tcpSegment.SequenceNumber + 1,
+		State:              tcpsender.WaitingForHandShake,
 	}
 
 	err := AddSession(&newSession)
@@ -99,22 +109,18 @@ func handleSYN(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IP
 }
 
 func handleACK(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) {
-	fmt.Println("Handle Ack")
 	session := FindSession(ipPseudoHeaderData.SourceIP, tcpSegment.SourcePort)
 	if session == nil {
 		return
 	}
 
-	fmt.Println("Found session")
-	session.State = ConnectionEstablished
+	session.State = tcpsender.ConnectionEstablished
 
 	if len(tcpSegment.Payload) != 0 {
-		session.ReceivedSegments = append(session.ReceivedSegments, TcpDataSegments{
+		session.ReceivedSegments = append(session.ReceivedSegments, tcpsender.TcpDataSegment{
 			SequenceNumber: tcpSegment.SequenceNumber,
 			Payload:        tcpSegment.Payload,
 		})
-
-		fmt.Println("Send response")
 
 		currentAck := getCurrentAckNum(session)
 
@@ -122,7 +128,7 @@ func handleACK(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IP
 
 			SourcePort:      uint16(config.Port),
 			DestinationPort: tcpSegment.SourcePort,
-			SequenceNumber:  session.LastSendSequenceNumber,
+			SequenceNumber:  tcpSegment.AckNumber, //Woher kommt diese Zahl genau?
 			AckNumber:       currentAck,
 			Flags:           tcpparser.TCPFlagACK,
 			WindowSize:      session.ServerWindowSize,
@@ -135,7 +141,7 @@ func handleACK(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IP
 	}
 }
 
-func getCurrentAckNum(session *TcpSession) uint32 {
+func getCurrentAckNum(session *tcpsender.TcpSession) uint32 {
 	ackNumRes := session.LastSendAck
 	for _, data := range session.ReceivedSegments {
 		dataAckNum := data.SequenceNumber + uint32(len(data.Payload))
@@ -147,8 +153,8 @@ func getCurrentAckNum(session *TcpSession) uint32 {
 	return ackNumRes
 }
 
-func FindSession(destinationIP [4]byte, destinationPort uint16) *TcpSession {
-	idx := slices.IndexFunc(sessions, func(s *TcpSession) bool {
+func FindSession(destinationIP [4]byte, destinationPort uint16) *tcpsender.TcpSession {
+	idx := slices.IndexFunc(sessions, func(s *tcpsender.TcpSession) bool {
 		return s.DestinationPort == destinationPort &&
 			slices.Equal(s.DestinationIP[:], destinationIP[:])
 	})
@@ -159,8 +165,8 @@ func FindSession(destinationIP [4]byte, destinationPort uint16) *TcpSession {
 	return sessions[idx]
 }
 
-func AddSession(session *TcpSession) error {
-	exists := slices.ContainsFunc(sessions, func(s *TcpSession) bool {
+func AddSession(session *tcpsender.TcpSession) error {
+	exists := slices.ContainsFunc(sessions, func(s *tcpsender.TcpSession) bool {
 		return CompareSessions(session, s)
 	})
 
@@ -172,7 +178,7 @@ func AddSession(session *TcpSession) error {
 	return nil
 }
 
-func CompareSessions(session1 *TcpSession, session2 *TcpSession) bool {
+func CompareSessions(session1 *tcpsender.TcpSession, session2 *tcpsender.TcpSession) bool {
 	if session1.DestinationPort != session2.DestinationPort {
 		return false
 	}

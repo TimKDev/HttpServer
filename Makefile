@@ -13,7 +13,6 @@ setup: cleanup
 cleanup:
 	@sudo iptables -D OUTPUT -p tcp --sport $(SERVER_PORT) --tcp-flags RST RST -j DROP 2>/dev/null || true
 
-
 build: 
 	@cd src && go build -o ../bin/httpServer ./main.go
 	@sudo setcap cap_net_raw+ep bin/httpServer
