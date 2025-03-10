@@ -1,15 +1,22 @@
 package tcpsender
 
 import (
-	"fmt"
-	"http-server/ip-parser"
-	"http-server/ip-sender"
-	"http-server/tcp-parser"
+	ipparser "http-server/ip-parser"
+	ipsender "http-server/ip-sender"
+	tcpparser "http-server/tcp-parser"
+	"time"
 )
 
-type TcpDataSegment struct {
+type ReceivedTcpDataSegment struct {
 	SequenceNumber uint32
 	Payload        []byte
+}
+
+type SendedTcpDataSegment struct {
+	SequenceNumber uint32
+	Payload        []byte
+	ReceivedAt     *time.Time
+	IsAcknowledged bool
 }
 
 type TcpSessionStatus int
@@ -24,13 +31,14 @@ type TcpSession struct {
 	DestinationIP      [4]byte
 	SourcePort         uint16
 	DestinationPort    uint16
-	ReceivedSegments   []TcpDataSegment
-	SendedSegments     []TcpDataSegment
+	ReceivedSegments   []ReceivedTcpDataSegment
+	SendedSegments     []SendedTcpDataSegment
 	LastSendAck        uint32
 	NextSequenceNumber uint32
 	State              TcpSessionStatus
 	ClientWindowSize   uint16
 	ServerWindowSize   uint16
+	IsHandledByBackend bool
 }
 
 func SendTCPSegment(sourceIP [4]byte, destinationIP [4]byte, segment *tcpparser.TCPSegment) {
@@ -51,17 +59,14 @@ func (session *TcpSession) SendTCPSegment(payload []byte) {
 	tcpSegmentToSend := tcpparser.TCPSegment{
 		SourcePort:      session.SourcePort,
 		DestinationPort: session.DestinationPort,
-		SequenceNumber:  session.NextSequenceNumber, //Wie ist diese Zahl?
-		AckNumber:       session.LastSendAck,        //Wie ist diese Zahl?
+		SequenceNumber:  session.NextSequenceNumber,
+		AckNumber:       session.LastSendAck,
 		Flags:           tcpparser.TCPFlagACK,
 		WindowSize:      session.ServerWindowSize,
 		UrgentPtr:       0,
 		Options:         make([]byte, 0),
 		Payload:         payload,
 	}
-
-	fmt.Println("Send TCP Package:")
-	tcpparser.PrintTcpSegment(&tcpSegmentToSend)
 
 	senderIpPseudoHeader := &tcpparser.IPPseudoHeaderData{
 		SourceIP:      session.SourceIP,
@@ -72,4 +77,14 @@ func (session *TcpSession) SendTCPSegment(payload []byte) {
 
 	parsedTcpPackage := tcpparser.ParseTCPSegmentToBytes(&tcpSegmentToSend, senderIpPseudoHeader)
 	ipsender.SendIPPackage(session.SourceIP, session.DestinationIP, session.DestinationPort, parsedTcpPackage)
+
+	session.NextSequenceNumber += uint32(len(payload))
+
+	now := time.Now()
+	session.SendedSegments = append(session.SendedSegments, SendedTcpDataSegment{
+		SequenceNumber: tcpSegmentToSend.SequenceNumber,
+		Payload:        payload,
+		ReceivedAt:     &now,
+		IsAcknowledged: false,
+	})
 }

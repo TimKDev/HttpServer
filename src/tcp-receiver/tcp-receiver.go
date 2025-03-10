@@ -2,9 +2,9 @@ package tcpreceiver
 
 import (
 	"fmt"
-	"http-server/http-receiver"
-	"http-server/tcp-parser"
-	"http-server/tcp-sender"
+	httpreceiver "http-server/http-receiver"
+	tcpparser "http-server/tcp-parser"
+	tcpsender "http-server/tcp-sender"
 	"log"
 	"math/rand/v2"
 	"slices"
@@ -39,7 +39,9 @@ func HandleTcpSegment(tcpPackage []byte, ipPseudoHeaderData *tcpparser.IPPseudoH
 
 func handleSessions() {
 	for _, session := range sessions {
-		slices.SortFunc(session.ReceivedSegments, func(a tcpsender.TcpDataSegment, b tcpsender.TcpDataSegment) int {
+		closeConnectionAfterHttpResponse(session)
+
+		slices.SortFunc(session.ReceivedSegments, func(a tcpsender.ReceivedTcpDataSegment, b tcpsender.ReceivedTcpDataSegment) int {
 			return int(b.SequenceNumber) - int(a.SequenceNumber)
 		})
 
@@ -56,8 +58,13 @@ func handleSessions() {
 			resBody = append(resBody, data.Payload...)
 		}
 
-		if isIncomplete {
+		if isIncomplete || session.IsHandledByBackend {
 			continue
+		}
+
+		if len(session.ReceivedSegments) != 0 {
+			//TODO This only works when only one TCP Segment with data is send to the server!
+			session.IsHandledByBackend = true
 		}
 
 		go httpreceiver.HandleHttpRequest(session, resBody)
@@ -79,9 +86,9 @@ func handleSYN(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IP
 		DestinationPort:    tcpSegment.SourcePort,
 		ClientWindowSize:   tcpSegment.WindowSize,
 		ServerWindowSize:   serverWindowSize,
-		ReceivedSegments:   make([]tcpsender.TcpDataSegment, 0),
-		SendedSegments:     make([]tcpsender.TcpDataSegment, 0),
-		NextSequenceNumber: serverSequenceNum,
+		ReceivedSegments:   make([]tcpsender.ReceivedTcpDataSegment, 0),
+		SendedSegments:     make([]tcpsender.SendedTcpDataSegment, 0),
+		NextSequenceNumber: serverSequenceNum + 1,
 		LastSendAck:        tcpSegment.SequenceNumber + 1,
 		State:              tcpsender.WaitingForHandShake,
 	}
@@ -111,33 +118,86 @@ func handleSYN(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IP
 func handleACK(tcpSegment tcpparser.TCPSegment, ipPseudoHeaderData *tcpparser.IPPseudoHeaderData, config TcpHandlerConfig) {
 	session := FindSession(ipPseudoHeaderData.SourceIP, tcpSegment.SourcePort)
 	if session == nil {
+		//Here it should be signaled to the client, that the SYN segment is missing.
 		return
 	}
 
 	session.State = tcpsender.ConnectionEstablished
+	ackDataSendFromServer(session, tcpSegment.AckNumber)
 
 	if len(tcpSegment.Payload) != 0 {
-		session.ReceivedSegments = append(session.ReceivedSegments, tcpsender.TcpDataSegment{
-			SequenceNumber: tcpSegment.SequenceNumber,
-			Payload:        tcpSegment.Payload,
-		})
+		handleDataSendToServer(session, &tcpSegment, config)
+	}
+}
 
-		currentAck := getCurrentAckNum(session)
+func handleDataSendToServer(session *tcpsender.TcpSession, tcpSegment *tcpparser.TCPSegment, config TcpHandlerConfig) {
+	session.ReceivedSegments = append(session.ReceivedSegments, tcpsender.ReceivedTcpDataSegment{
+		SequenceNumber: tcpSegment.SequenceNumber,
+		Payload:        tcpSegment.Payload,
+	})
 
-		ackRes := tcpparser.TCPSegment{
+	currentAck := getCurrentAckNum(session)
 
-			SourcePort:      uint16(config.Port),
-			DestinationPort: tcpSegment.SourcePort,
-			SequenceNumber:  tcpSegment.AckNumber, //Woher kommt diese Zahl genau?
-			AckNumber:       currentAck,
-			Flags:           tcpparser.TCPFlagACK,
-			WindowSize:      session.ServerWindowSize,
-			UrgentPtr:       0,
-			Options:         make([]byte, 0),
-			Payload:         make([]byte, 0),
+	ackRes := tcpparser.TCPSegment{
+
+		SourcePort:      uint16(config.Port),
+		DestinationPort: tcpSegment.SourcePort,
+		SequenceNumber:  session.NextSequenceNumber,
+		AckNumber:       currentAck,
+		Flags:           tcpparser.TCPFlagACK,
+		WindowSize:      session.ServerWindowSize,
+		UrgentPtr:       0,
+		Options:         make([]byte, 0),
+		Payload:         make([]byte, 0),
+	}
+
+	session.LastSendAck = currentAck
+
+	tcpsender.SendTCPSegment(session.SourceIP, session.DestinationIP, &ackRes)
+}
+
+func ackDataSendFromServer(session *tcpsender.TcpSession, receivedAckNumber uint32) {
+	for i := range session.SendedSegments {
+		data := &session.SendedSegments[i]
+		if data.SequenceNumber+uint32(len(data.Payload)) <= receivedAckNumber {
+			data.IsAcknowledged = true
 		}
+	}
+}
 
-		tcpsender.SendTCPSegment(ipPseudoHeaderData.DestinationIP, ipPseudoHeaderData.SourceIP, &ackRes)
+func closeConnectionAfterHttpResponse(session *tcpsender.TcpSession) {
+	//TODO This only works for a simple Http Request with Response and without Keep Alive
+	if len(session.SendedSegments) == 0 {
+		return
+	}
+	for _, sendedData := range session.SendedSegments {
+		if !sendedData.IsAcknowledged {
+			return
+		}
+	}
+
+	finSegment := tcpparser.TCPSegment{
+		SourcePort:      session.SourcePort,
+		DestinationPort: session.DestinationPort,
+		SequenceNumber:  session.NextSequenceNumber,
+		AckNumber:       session.LastSendAck,
+		Flags:           tcpparser.TCPFlagFIN | tcpparser.TCPFlagACK,
+		WindowSize:      session.ServerWindowSize,
+		UrgentPtr:       0,
+		Options:         make([]byte, 0),
+		Payload:         make([]byte, 0),
+	}
+
+	tcpsender.SendTCPSegment(session.SourceIP, session.DestinationIP, &finSegment)
+	removeSession(session)
+}
+
+func removeSession(session *tcpsender.TcpSession) {
+	for i, s := range sessions {
+		if CompareSessions(s, session) {
+			sessions = append(sessions[:i], sessions[i+1:]...)
+			break
+		}
 	}
 }
 
@@ -182,7 +242,7 @@ func CompareSessions(session1 *tcpsender.TcpSession, session2 *tcpsender.TcpSess
 	if session1.DestinationPort != session2.DestinationPort {
 		return false
 	}
-	for i, _ := range session1.DestinationIP {
+	for i := range session1.DestinationIP {
 		if session1.DestinationIP[i] != session2.DestinationIP[i] {
 			return false
 		}
