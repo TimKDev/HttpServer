@@ -2,9 +2,9 @@ package tcpreceiver
 
 import (
 	"fmt"
-	httpreceiver "http-server/http-receiver"
-	tcpparser "http-server/tcp-parser"
-	tcpsender "http-server/tcp-sender"
+	"http-server/http-receiver"
+	"http-server/tcp-parser"
+	"http-server/tcp-sender"
 	"log"
 	"math/rand/v2"
 	"slices"

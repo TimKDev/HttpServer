@@ -1,8 +1,8 @@
 package ipsender
 
 import (
-	ipparser "http-server/ip-parser"
-	senderworker "http-server/sender-worker"
+	"http-server/ip-parser"
+	"http-server/sender-worker"
 )
 
 func SendIPPackage(sourceIP [4]byte, destinationIP [4]byte, destinationPort uint16, payload []byte) error {

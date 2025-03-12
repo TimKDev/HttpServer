@@ -1,9 +1,9 @@
 package tcpsender
 
 import (
-	ipparser "http-server/ip-parser"
-	ipsender "http-server/ip-sender"
-	tcpparser "http-server/tcp-parser"
+	"http-server/ip-parser"
+	"http-server/ip-sender"
+	"http-server/tcp-parser"
 	"time"
 )
 

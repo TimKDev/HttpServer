@@ -1,7 +1,7 @@
 package receiverworker
 
 import (
-	ipreceiver "http-server/ip-receiver"
+	"http-server/ip-receiver"
 	"log"
 	"syscall"
 )
